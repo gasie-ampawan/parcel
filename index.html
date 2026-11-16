@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ระบบจัดการและแจ้งรับพัสดุนิติบุคคล</title>
+  <!-- Load Excel library securely with fallback -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #12242A;
+      --surface: #0D3F46;
+      --surface-alt: #0E5157;
+      --surface-glass: rgba(13, 63, 70, 0.88);
+      --border: #17636A;
+      --border-subtle: rgba(23, 99, 106, 0.4);
+      --ink: #ffffff;
+      --ink-secondary: #f8fafc;
+      --muted: #cbd5e1;
+      --brand: #C5A880;
+      --brand-hover: #D6BA93;
+      --brand-soft: rgba(197, 168, 128, 0.15);
+      --brand-border: #C5A880;
+      --brand-gradient: linear-gradient(135deg, #8A6D3B 0%, #C5A880 50%, #E5CFA3 100%);
+      --success: #10b981;
+      --success-soft: rgba(16, 185, 129, 0.12);
+      --warning: #f59e0b;
+      --warning-soft: rgba(245, 158, 11, 0.12);
+      --danger: #f43f5e;
+      --danger-soft: rgba(244, 63, 94, 0.12);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25);
+      --shadow-md: 0 12px 32px -4px rgba(0, 0, 0, 0.35);
+      --shadow-brand: 0 4px 15px -3px rgba(197, 168, 128, 0.4);
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --font: "Plus Jakarta Sans", "Inter", "Sarabun", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    ::placeholder { color: rgba(255, 255, 255, 0.45); opacity: 1; }
+
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--ink);
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(at 0% 0%, rgba(23, 99, 106, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(13, 63, 70, 0.2) 0px, transparent 45%),
+        radial-gradient(at 50% 100%, rgba(197, 168, 128, 0.05) 0px, transparent 50%);
+      background-attachment: fixed;
+      line-height: 1.6;
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+    }
+
+    .app-header {
+      background: var(--surface-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      box-shadow: var(--shadow);
+    }
+
+    .header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 14px var(--space-6);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .brand-group { display: flex; align-items: center; gap: 14px; }
+    .brand-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: var(--brand-gradient); color: #12242A;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 21px; flex-shrink: 0;
+      box-shadow: var(--shadow-brand);
+    }
+    .brand-title { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+    .brand-subtitle { margin: 2px 0 0; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+    .header-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .sync-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 14px; border-radius: 999px;
+      background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399; font-size: 13px; font-weight: 700;
+    }
+    .sync-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--success); animation: pulseGreen 1.4s infinite ease-in-out;
+    }
+
+    @keyframes pulseGreen {
+      0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+      50% { opacity: 0.5; transform: scale(1.15); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    }
+
+    .cutoff-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 999px;
+      background: var(--surface-alt); border: 1px solid var(--border);
+      color: var(--ink-secondary); font-size: 13px; font-weight: 600;
+    }
+
+    .mode-switcher {
+      display: inline-flex; background: var(--surface-alt);
+      padding: 4px; border-radius: 12px; border: 1px solid var(--border);
+    }
+    .mode-btn {
+      font: inherit; font-size: 13.5px; font-weight: 700;
+      padding: 7px 16px; border-radius: 9px; border: none;
+      background: transparent; color: var(--muted); cursor: pointer; transition: all 0.2s ease;
+    }
+    .mode-btn:hover:not(.active) { color: var(--ink); }
+    .mode-btn.active {
+      background: var(--brand-gradient); color: #12242A;
+      box-shadow: 0 2px 8px rgba(197, 168, 128, 0.3);
+    }
+
+    .container { max-width: 1280px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 28px; margin-bottom: var(--space-6);
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: var(--space-3); margin-bottom: 22px; padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .card-title { margin: 0; font-size: 19px; font-weight: 800; color: var(--brand); }
+    .card-desc { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
+
+    .slideshow-wrapper {
+      position: relative; width: 100%; aspect-ratio: 2 / 1; max-height: 400px;
+      background: linear-gradient(135deg, #12242A 0%, #0D3F46 50%, #17636A 100%);
+      border-radius: 20px; overflow: hidden; margin-bottom: 28px;
+      border: 1px solid var(--border); box-shadow: var(--shadow-md);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .slide-img { width: 100%; height: 100%; object-fit: contain; background: var(--surface-alt); display: block; }
+    .slide-empty { color: #cbd5e1; text-align: center; padding: var(--space-8); }
+    .slide-empty-title { font-size: 18px; font-weight: 700; color: var(--brand); margin-bottom: 6px; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 7px; margin-bottom: var(--space-4); }
+    .form-label { font-size: 14px; font-weight: 700; color: var(--ink-secondary); display: flex; align-items: center; gap: 6px; }
+    .req-star { color: var(--danger); font-weight: 700; }
+    .form-hint { font-size: 12.5px; color: var(--muted); }
+
+    .input, .select, .textarea {
+      font: inherit; width: 100%; padding: 11px 14px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--surface-alt); color: var(--ink); font-size: 14.5px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .input:focus, .select:focus, .textarea:focus {
+      outline: none; border-color: var(--brand);
+      box-shadow: 0 0 0 4px rgba(197, 168, 128, 0.2);
+    }
+
+    .btn {
+      font: inherit; font-size: 14px; font-weight: 700; padding: 11px 20px;
+      border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-primary { background: var(--brand-gradient); color: #12242A; box-shadow: var(--shadow-brand); }
+    .btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn-secondary { background: var(--surface-alt); color: var(--ink); border-color: var(--border); }
+    .btn-secondary:hover { background: var(--surface); border-color: var(--brand); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-warning { background: var(--warning); color: #fff; }
+    .btn-sm { padding: 7px 13px; font-size: 13px; border-radius: 8px; }
+
+    .latest-submission-box {
+      background: var(--surface-alt); border: 1px solid var(--border);
+      border-left: 6px solid var(--brand); border-radius: var(--radius);
+      padding: 20px 24px; margin-top: 22px; box-shadow: var(--shadow);
+    }
+    .latest-submission-title {
+      margin: 0 0 10px 0; font-size: 16px; font-weight: 800; color: var(--brand);
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .latest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 14px; color: var(--ink-secondary); }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6); }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: var(--space-4) var(--space-6);
+      box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px;
+    }
+    .stat-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .stat-value { font-size: 32px; font-weight: 800; color: var(--brand); }
+    .stat-subtext { font-size: 12px; color: var(--muted); }
+
+    .admin-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--space-6); border-bottom: 1px solid var(--border); padding-bottom: var(--space-3); }
+    .admin-tab-btn {
+      font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px;
+      border-radius: var(--radius-sm); border: 1px solid var(--border);
+      background: var(--surface); color: var(--muted); cursor: pointer; transition: all 0.15s ease;
+    }
+    .admin-tab-btn:hover { color: var(--ink); background: var(--surface-alt); }
+    .admin-tab-btn.active { background: var(--brand-gradient); color: #12242A; border-color: var(--brand); }
+
+    .table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+    th { background: var(--surface-alt); color: var(--brand); font-weight: 700; padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:hover { background: var(--surface-alt); }
+    .empty-state { text-align: center; padding: var(--space-8) var(--space-4); color: var(--muted); font-size: 14px; }
+
+    .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .badge-req { background: var(--danger-soft); color: #ff4b72; border: 1px solid #fecaca; }
+    .badge-opt { background: var(--surface-alt); color: var(--ink-secondary); border: 1px solid var(--border); }
+    .badge-matched { background: var(--success-soft); color: #10b981; border: 1px solid #bbf7d0; }
+    .badge-unmatched { background: var(--warning-soft); color: #f59e0b; border: 1px solid #fde68a; }
+
+    .house-chip-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 220px; overflow-y: auto; padding: var(--space-3); background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    .house-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-weight: 600; }
+    .house-chip button { border: none; background: none; color: var(--danger); cursor: pointer; padding: 0 2px; font-weight: bold; }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(18, 36, 42, 0.7);
+      backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 100; padding: var(--space-4);
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box { background: var(--surface); border-radius: var(--radius); max-width: 460px; width: 100%; padding: var(--space-6); box-shadow: var(--shadow-md); border: 1px solid var(--border); }
+    .modal-title { margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: var(--brand); }
+    .modal-body { margin: 0 0 20px 0; font-size: 14px; color: var(--ink-secondary); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 768px) {
+      .header-inner { padding: 10px var(--space-4); }
+      .brand-icon, .brand-subtitle, .cutoff-badge { display: none !important; }
+      .brand-title { font-size: 16px; }
+      .container { padding: var(--space-4); }
+      .card { padding: 20px; }
+      #userFormCardTitle, #userFormCardDesc { display: none !important; }
+      #mobileFormProjectTitle { display: block !important; font-size: 17px; font-weight: 800; color: var(--brand); text-align: center; width: 100%; margin-bottom: 6px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header no-print">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-icon">📦</div>
+        <div>
+          <h1 class="brand-title" id="headerProjectNameBadge">🏢 โครงการอาคารชุดนิติบุคคล</h1>
+          <p class="brand-subtitle">Juristic Parcel & Request Management Portal</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div class="sync-badge" id="realSyncBadge">
+          <span class="sync-dot"></span>
+          <span id="realSyncText">Real-Sync ออนไลน์</span>
+        </div>
+        <div class="cutoff-badge">
+          <span>⏰ ตัดรอบพัสดุอัตโนมัติ 20:00 น. (<span id="clockDisplay">--:--:--</span>)</span>
+        </div>
+        <div class="mode-switcher">
+          <button type="button" class="mode-btn active" id="btnModeUser" onclick="switchPortalMode('user')">🏠 หน้าบ้าน</button>
+          <button type="button" class="mode-btn" id="btnModeAdmin" onclick="switchPortalMode('admin')">🛠️ หลังบ้าน</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="viewUserPortal">
+      <div class="slideshow-wrapper" id="userSlideshow" onmouseenter="handleSlideshowHover(true)" onmouseleave="handleSlideshowHover(false)">
+        <div class="slide-empty" id="slideEmptyState">
+          <div class="slide-empty-title">📢 พื้นที่แสดงภาพประกาศนิติบุคคล</div>
+          <div style="font-size: 13px;">สามารถตั้งค่ารูปภาพประกาศได้ที่เมนูหลังบ้าน</div>
+        </div>
+        <img id="slideImageEl" class="slide-img hidden" alt="ภาพประกาศ">
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title" id="userFormCardTitle">📝 แบบฟอร์มแจ้งขอรับพัสดุ</h2>
+            <p class="card-desc" id="userFormCardDesc">เลือกหรือพิมพ์บ้านเลขที่ (พิมพ์เฉพาะเลขท้ายได้ ระบบเติม Prefix อัตโนมัติ) และระบุจุดรับพัสดุ</p>
+            <div id="mobileFormProjectTitle" class="hidden">🏢 โครงการอาคารชุดนิติบุคคล</div>
+          </div>
+        </div>
+
+        <form id="userRequestForm" onsubmit="handleUserRequestSubmit(event)" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="reqHouseInput">บ้านเลขที่ / ห้องชุด <span class="req-star">*</span></label>
+              <input type="text" id="reqHouseInput" class="input" list="houseDatalist" placeholder="เช่น 14 หรือ 62/0014" required autocomplete="off" onblur="handleHouseAutoFormat(this)">
+              <datalist id="houseDatalist"></datalist>
+              <span class="form-hint">พิมพ์เฉพาะเลขท้าย เช่น 14 ระบบจะจัดรูปแบบเป็น 62/0014 ให้อัตโนมัติ</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reqLocationSelect">จุดรับพัสดุ (Pickup Place) <span class="req-star">*</span></label>
+              <select id="reqLocationSelect" class="select" required onchange="handlePickupLocationChange()">
+                <option value="">-- เลือกจุดรับพัสดุ --</option>
+              </select>
+            </div>
+
+            <div class="form-group hidden" id="reqPhoneGroup">
+              <label class="form-label" for="reqPhoneInput">เบอร์โทรศัพท์ติดต่อ <span class="req-star hidden" id="phoneReqStar">*</span></label>
+              <input type="tel" id="reqPhoneInput" class="input" placeholder="เช่น 081-234-5678">
+            </div>
+          </div>
+
+          <div id="userFormError" style="color: var(--danger); font-size: 13px; font-weight: 600; margin-bottom: 12px;" class="hidden"></div>
+          <button type="submit" class="btn btn-primary">🚀 ส่งคำขอรับพัสดุ</button>
+        </form>
+
+        <div id="latestRequestBlueBox" class="latest-submission-box hidden">
+          <div class="latest-submission-title">
+            <span>✅ ส่งคำขอรับพัสดุล่าสุดสำเร็จ</span>
+          </div>
+          <div class="latest-grid" id="latestRequestSummaryContent"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="viewAdminPortal" class="hidden">
+      <div id="adminLoginGate" class="card" style="max-width: 460px; margin: 40px auto;">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">🔐 เข้าสู่ระบบจัดการหลังบ้าน (Admin)</h2>
+            <p class="card-desc">ค่าเริ่มต้น: admin / 1234</p>
+          </div>
+        </div>
+        <form onsubmit="handleAdminLogin(event)" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="loginUsername">Username</label>
+            <input type="text" id="loginUsername" class="input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" class="input" required>
+          </div>
+          <div id="loginErrorMsg" style="color: var(--danger); font-size: 13px; margin-bottom: 12px;" class="hidden"></div>
+          <div style="display:flex; justify-content:flex-end;">
+            <button type="submit" class="btn btn-primary">เข้าสู่ระบบ</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="adminWorkspace" class="hidden">
+        <div class="stats-grid no-print">
+          <div class="stat-card">
+            <span class="stat-label">📋 คำขอรับพัสดุทั้งหมด</span>
+            <span class="stat-value" id="statTotalRequests">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">🏘️ จำนวนบ้านเลขที่</span>
+            <span class="stat-value" id="statTotalHouses">0</span>
+          </div>
+        </div>
+
+        <div class="admin-tabs no-print">
+          <button type="button" class="admin-tab-btn active" data-tab="tabParcels" onclick="switchAdminTab('tabParcels')">📦 พัสดุประจำวัน</button>
+          <button type="button" class="admin-tab-btn" data-tab="tabSettings" onclick="switchAdminTab('tabSettings')">⚙️ ตั้งค่าโครงการ</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="handleAdminLogout()">ออกจากระบบ</button>
+        </div>
+
+        <div id="tabParcels" class="admin-tab-pane">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">📦 จัดการรายการพัสดุประจำวัน (Auto-Clear 20:00 น.)</h2>
+                <p class="card-desc">ระบบจะเคลียร์รายการพัสดุประจำวันอัตโนมัติทุกวันเวลา 20:00 น.[cite: 2]</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>วันที่</th>
+                    <th>บ้านเลขที่</th>
+                    <th>เลขอ้างอิง</th>
+                    <th>ประเภทพัสดุ</th>
+                  </tr>
+                </thead>
+                <tbody id="dailyParcelsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tabSettings" class="admin-tab-pane hidden">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">🏢 ตั้งค่าชื่อโครงการ</h2>
+            </div>
+            <form onsubmit="handleSaveProjectName(event)">
+              <div class="form-group">
+                <label class="form-label" for="projectNameInput">ชื่อโครงการ</label>
+                <input type="text" id="projectNameInput" class="input" required>
+              </div>
+              <button type="submit" class="btn btn-primary">บันทึก</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="customConfirmModal">
+    <div class="modal-box">
+      <h3 class="modal-title" id="modalTitleText">ยืนยันการทำรายการ</h3>
+      <p class="modal-body" id="modalBodyText">คุณต้องการดำเนินการนี้ใช่หรือไม่?</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="modalCancelBtn" onclick="closeConfirmModal()">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" id="modalConfirmBtn">ยืนยัน</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isSavingOrDeleting = false;
+    let isAdminAuthenticated = false;
+    let lastAutoClearDateKey = "";
+    let slideTimer = null;
+    let isSlideshowHovered = false;
+
+    const appState = {
+      requests: [],
+      parcels: [],
+      houses: ["62/0001", "62/0002", "62/0003", "62/0014", "62/0150"],
+      locations: [
+        { id: "loc-1", name: "หน้าห้องนิติบุคคล", requirePhone: false },
+        { id: "loc-2", name: "ฝากใส่ตู้ HIVE BOX", requirePhone: true }
+      ],
+      announcements: [],
+      admins: [{ username: "admin", password: "1234" }],
+      projectName: "โครงการอาคารชุดนิติบุคคล",
+      slideshowSpeedMs: 5000
+    };
+
+    function sanitizeInput(rawVal) {
+      if (!rawVal) return "";
+      let str = String(rawVal).trim().replace(/[<>]/g, "");
+      if (/^[=+\-@]/.test(str)) str = "'" + str;
+      return str;
+    }
+
+    function getTodayDateString() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    }
+
+    function getCurrentTimeString() {
+      const now = new Date();
+      return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+    }
+
+    // ฟังก์ชันจัดรูปแบบบ้านเลขที่ รองรับการพิมพ์เลขท้ายเพียวๆ เช่น "14" -> "62/0014"
+    function formatHouseNumber(rawInput) {
+      const cleaned = sanitizeInput(rawInput).replace(/\s+/g, "");
+      if (!cleaned) return "";
+
+      if (appState.houses.includes(cleaned)) return cleaned;
+
+      if (/^\d+$/.test(cleaned)) {
+        const numVal = parseInt(cleaned, 10);
+        const matchedHouse = appState.houses.find(h => {
+          const parts = h.split("/");
+          return parseInt(parts[parts.length - 1], 10) === numVal;
+        });
+        if (matchedHouse) return matchedHouse;
+
+        let defaultPrefix = "62/";
+        if (appState.houses.length > 0 && appState.houses[0].includes("/")) {
+          defaultPrefix = appState.houses[0].split("/")[0] + "/";
+        }
+        return defaultPrefix + String(numVal).padStart(4, "0");
+      }
+
+      const slashMatch = cleaned.match(/^([^\/]+)\/(\d+)$/);
+      if (slashMatch) {
+        const prefix = slashMatch[1] + "/";
+        const numVal = parseInt(slashMatch[2], 10);
+        return prefix + String(numVal).padStart(4, "0");
+      }
+
+      return cleaned;
+    }
+
+    function handleHouseAutoFormat(inputEl) {
+      if (!inputEl || !inputEl.value.trim()) return;
+      inputEl.value = formatHouseNumber(inputEl.value);
+    }
+
+    function handlePickupLocationChange() {
+      const sel = document.getElementById("reqLocationSelect");
+      const phoneGroup = document.getElementById("reqPhoneGroup");
+      const phoneInput = document.getElementById("reqPhoneInput");
+      const phoneStar = document.getElementById("phoneReqStar");
+      const locObj = appState.locations.find(l => l.name === sel.value);
+
+      if (locObj && locObj.requirePhone) {
+        phoneGroup.classList.remove("hidden");
+        phoneInput.required = true;
+        phoneStar.classList.remove("hidden");
+      } else {
+        phoneGroup.classList.add("hidden");
+        phoneInput.required = false;
+        phoneInput.value = "";
+      }
+    }
+
+    function handleUserRequestSubmit(e) {
+      e.preventDefault();
+      const errBox = document.getElementById("userFormError");
+      errBox.classList.add("hidden");
+
+      const houseInput = document.getElementById("reqHouseInput");
+      const locSelect = document.getElementById("reqLocationSelect");
+      const phoneInput = document.getElementById("reqPhoneInput");
+
+      const formattedHouse = formatHouseNumber(houseInput.value);
+      houseInput.value = formattedHouse;
+
+      if (!formattedHouse || !locSelect.value) {
+        errBox.textContent = "กรุณากรอกข้อมูลให้ครบถ้วน";
+        errBox.classList.remove("hidden");
+        return;
+      }
+
+      const newReq = {
+        id: "req-" + Date.now(),
+        house: formattedHouse,
+        locationName: locSelect.value,
+        phone: phoneInput.value || "-",
+        date: getTodayDateString(),
+        time: getCurrentTimeString(),
+        matched: false
+      };
+
+      appState.requests.unshift(newReq);
+      appState.latestSubmittedRequest = newReq;
+      renderAll();
+
+      houseInput.value = "";
+      locSelect.value = "";
+      phoneInput.value = "";
+    }
+
+    // ฟังก์ชันตัดรอบพัสดุอัตโนมัติเวลา 20:00 น.[cite: 2]
+    function checkAutoClear2000AndClock() {
+      const now = new Date();
+      const clockEl = document.getElementById("clockDisplay");
+      if (clockEl) clockEl.textContent = getCurrentTimeString();
+
+      const todayKey = getTodayDateString();
+      if (now.getHours() === 20 && now.getMinutes() === 0 && lastAutoClearDateKey !== todayKey) {
+        lastAutoClearDateKey = todayKey;
+        if (appState.parcels.length > 0) {
+          appState.parcels = [];
+          renderAll();
+        }
+      }
+    }
+
+    function switchPortalMode(mode) {
+      document.getElementById("viewUserPortal").classList.toggle("hidden", mode !== "user");
+      document.getElementById("viewAdminPortal").classList.toggle("hidden", mode !== "admin");
+      document.getElementById("btnModeUser").classList.toggle("active", mode === "user");
+      document.getElementById("btnModeAdmin").classList.toggle("active", mode === "admin");
+    }
+
+    function switchAdminTab(tabId) {
+      document.querySelectorAll(".admin-tab-pane").forEach(p => p.classList.add("hidden"));
+      document.querySelectorAll(".admin-tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+      document.getElementById(tabId).classList.remove("hidden");
+    }
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const u = sanitizeInput(document.getElementById("loginUsername").value);
+      const p = sanitizeInput(document.getElementById("loginPassword").value);
+
+      if (u === "admin" && p === "1234") {
+        isAdminAuthenticated = true;
+        document.getElementById("adminLoginGate").classList.add("hidden");
+        document.getElementById("adminWorkspace").classList.remove("hidden");
+        renderAll();
+      } else {
+        document.getElementById("loginErrorMsg").textContent = "Username หรือ Password ไม่ถูกต้อง";
+        document.getElementById("loginErrorMsg").classList.remove("hidden");
+      }
+    }
+
+    function handleAdminLogout() {
+      isAdminAuthenticated = false;
+      document.getElementById("adminLoginGate").classList.remove("hidden");
+      document.getElementById("adminWorkspace").classList.add("hidden");
+    }
+
+    function handleSaveProjectName(e) {
+      e.preventDefault();
+      appState.projectName = sanitizeInput(document.getElementById("projectNameInput").value);
+      renderAll();
+    }
+
+    function showConfirmModal(title, message, onConfirm) {
+      document.getElementById("modalTitleText").textContent = title;
+      document.getElementById("modalBodyText").textContent = message;
+      document.getElementById("customConfirmModal").classList.add("open");
+      document.getElementById("modalConfirmBtn").onclick = () => {
+        closeConfirmModal();
+        if (onConfirm) onConfirm();
+      };
+    }
+
+    function closeConfirmModal() {
+      document.getElementById("customConfirmModal").classList.remove("open");
+    }
+
+    function renderAll() {
+      document.getElementById("headerProjectNameBadge").textContent = "🏢 " + appState.projectName;
+      document.getElementById("projectNameInput").value = appState.projectName;
+
+      const locSel = document.getElementById("reqLocationSelect");
+      locSel.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` +
+        appState.locations.map(l => `<option value="${l.name}">${l.name}</option>`).join("");
+
+      const dl = document.getElementById("houseDatalist");
+      dl.innerHTML = appState.houses.map(h => `<option value="${h}"></option>`).join("");
+
+      document.getElementById("statTotalRequests").textContent = appState.requests.length;
+      document.getElementById("statTotalHouses").textContent = appState.houses.length;
+
+      const latestBox = document.getElementById("latestRequestBlueBox");
+      const latestContent = document.getElementById("latestRequestSummaryContent");
+      if (appState.latestSubmittedRequest) {
+        latestBox.classList.remove("hidden");
+        const lat = appState.latestSubmittedRequest;
+        latestContent.innerHTML = `<div>บ้านเลขที่: ${lat.house}</div><div>จุดรับ: ${lat.locationName}</div><div>เวลา: ${lat.date} ${lat.time}</div>`;
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderAll();
+      setInterval(checkAutoClear2000AndClock, 1000);
+    });
+  </script>
+</body>
+</html>
