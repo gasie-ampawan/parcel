@@ -1173,6 +1173,19 @@
         </div>
       </div>
 
+      <!-- แถบประกาศข้อความด่วนหน้าบ้าน (ดึงข้อมูลจากหลังบ้าน) -->
+      <div class="card" id="userAnnouncementTickerCard" style="margin-top: 20px; border-left: 6px solid var(--brand); padding: 16px 20px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 22px;">📢</span>
+          <div style="flex: 1; overflow: hidden;">
+            <div style="font-size: 13px; font-weight: 700; color: var(--brand); margin-bottom: 2px;">ประกาศสำคัญจากนิติบุคคล</div>
+            <div id="userAnnouncementTickerText" style="font-size: 14.5px; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              กำลังโหลดประกาศจากระบบ...
+            </div>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <!-- ==================== 2. ADMIN PORTAL (หลังบ้าน) ==================== -->
@@ -1754,6 +1767,44 @@
                   </tr>
                 </thead>
                 <tbody id="announcementsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          
+          <!-- Text Announcements Management (แยกข้อความประกาศออกจากรูปภาพ) -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">💬 การจัดการข้อความประกาศด่วนหน้าบ้าน (Text Announcements)</h2>
+                <p class="card-desc">พิมพ์ข้อความประกาศหรือข่าวสารสำคัญเพื่อแสดงที่แถบประกาศด้านล่างหน้าฟอร์มคำขอหน้าบ้านโดยเฉพาะ</p>
+              </div>
+            </div>
+
+            <form onsubmit="handleSaveTextAnnouncement(event)" style="background: var(--surface-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
+              <input type="hidden" id="editTextAnnId" value="">
+              <div class="form-group" style="margin-bottom: 10px;">
+                <label class="form-label" for="textAnnMessageInput">ข้อความประกาศ (Message) <span class="req-star">*</span></label>
+                <textarea id="textAnnMessageInput" class="textarea" rows="2" placeholder="เช่น แจ้งลูกบ้าน: งดจ่ายน้ำประปาชั่วคราววันพรุ่งนี้ 09:00 - 12:00 น." required></textarea>
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap: 8px;">
+                <button type="button" id="cancelEditTextAnnBtn" class="btn btn-secondary btn-sm hidden" onclick="resetTextAnnForm()">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary btn-sm" id="saveTextAnnBtn">➕ เพิ่มข้อความประกาศ</button>
+              </div>
+            </form>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 10%; text-align:center;">ลำดับ</th>
+                    <th>เนื้อหาข้อความประกาศ</th>
+                    <th style="text-align:right;">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="textAnnouncementsTbody">
+                  <tr><td colspan="3" class="empty-state">ยังไม่มีข้อความประกาศในระบบ</td></tr>
+                </tbody>
               </table>
             </div>
           </div>
@@ -2517,6 +2568,9 @@ function syncTableSheet(ss, sheetName, headers, rows) {
       announcements: [
         { id: "ann-default-1", title: "ยินดีต้อนรับสู่โครงการอาคารชุดนิติบุคคล", imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80" }
       ],
+      textAnnouncements: [
+        { id: "txt-1", message: "📢 ประกาศจากนิติบุคคล: กรุณารับพัสดุภายใน 3 วันทำการ ขอบคุณค่ะ" }
+      ],
       admins: [
         {
           id: "adm-1",
@@ -2583,12 +2637,18 @@ function syncTableSheet(ss, sheetName, headers, rows) {
           if (Array.isArray(parsed.houses)) appState.houses = parsed.houses;
           if (Array.isArray(parsed.locations) && parsed.locations.length > 0) appState.locations = parsed.locations;
           
-          // Banners recovery from dedicated key
+          // Banners & Text Announcements recovery from dedicated keys
           const bannersSaved = localStorage.getItem("juristic_parcel_banners_v1");
           if (bannersSaved) {
             appState.announcements = JSON.parse(bannersSaved);
           } else if (Array.isArray(parsed.announcements) && parsed.announcements.length > 0) {
             appState.announcements = parsed.announcements;
+          }
+          const textAnnSaved = localStorage.getItem("juristic_parcel_text_ann_v1");
+          if (textAnnSaved) {
+            appState.textAnnouncements = JSON.parse(textAnnSaved);
+          } else if (Array.isArray(parsed.textAnnouncements) && parsed.textAnnouncements.length > 0) {
+            appState.textAnnouncements = parsed.textAnnouncements;
           }
 
           if (Array.isArray(parsed.admins) && parsed.admins.length > 0) appState.admins = parsed.admins;
@@ -2620,6 +2680,7 @@ function syncTableSheet(ss, sheetName, headers, rows) {
       try {
         // Save announcements separately into a safer key to avoid quota overflow in main state
         localStorage.setItem("juristic_parcel_banners_v1", JSON.stringify(appState.announcements));
+        localStorage.setItem("juristic_parcel_text_ann_v1", JSON.stringify(appState.textAnnouncements));
         localStorage.setItem("juristic_parcel_app_v1", JSON.stringify(appState));
       } catch (e) {
         try {
@@ -4589,6 +4650,7 @@ function syncTableSheet(ss, sheetName, headers, rows) {
       isAdminAuthenticated = true;
       saveStateToStorage();
       applyAdminRolePermissionsUI();
+      switchPortalMode('user');
       renderAdminAuthView();
       renderAll();
       showNoticeModal("บันทึกข้อมูลเรียบร้อย", "ปรับเปลี่ยนรหัสผ่านใหม่สำเร็จ ระบบจะไม่แสดงคำแนะนำรหัสผ่านหน้าล็อกอินอีกต่อไป");
@@ -4793,6 +4855,26 @@ function syncTableSheet(ss, sheetName, headers, rows) {
       return Object.values(summaryMap);
     }
 
+    
+    function renderUserAnnouncementTicker() {
+      const tickerTextEl = document.getElementById("userAnnouncementTickerText");
+      const tickerCardEl = document.getElementById("userAnnouncementTickerCard");
+      
+      if (!tickerTextEl || !tickerCardEl) return;
+
+      const list = Array.isArray(appState.textAnnouncements) && appState.textAnnouncements.length > 0
+        ? appState.textAnnouncements
+        : (Array.isArray(appState.announcements) ? appState.announcements.map(a => ({ message: a.title })) : []);
+
+      if (list.length > 0) {
+        tickerCardEl.classList.remove("hidden");
+        const latest = list[0];
+        tickerTextEl.textContent = latest.message || latest.title || "ประกาศแจ้งเตือนจากนิติบุคคลอาคารชุด";
+      } else {
+        tickerCardEl.classList.add("hidden");
+      }
+    }
+
     function renderAll() {
       reconcileRequestsAndParcels();
 
@@ -4857,6 +4939,7 @@ function syncTableSheet(ss, sheetName, headers, rows) {
       // Render Slideshow Banner
       renderSlideshow();
       renderLatestSubmissionCard();
+      renderUserAnnouncementTicker();
 
       // Dashboard Counter Statistics
       const latestRequestsAll = getLatestRequestsOnly(appState.requests);
@@ -5647,6 +5730,7 @@ function syncTableSheet(ss, sheetName, headers, rows) {
       const speedSelect = document.getElementById("slideshowSpeedSelect");
       if (speedSelect) speedSelect.value = String(appState.slideshowSpeedMs || 5000);
 
+      switchPortalMode('user');
       renderAdminAuthView();
       renderAll();
       startRealSyncPolling();
