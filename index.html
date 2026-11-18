@@ -358,9 +358,7 @@
       border-radius: 4px;
     }
 
-    /* =======================================================
-       แถบประกาศข้อความประชาสัมพันธ์หน้าบ้าน (ไม่มีปุ่มรับทราบ)
-       ======================================================= */
+    /* แถบประกาศข้อความประชาสัมพันธ์หน้าบ้าน */
     .notice-ticker-card {
       position: relative;
       display: flex;
@@ -393,7 +391,6 @@
       margin-right: 6px;
     }
 
-    /* แถบข้อความวิ่งแนวนอน (Marquee - ตัวเลือกเสริม) */
     .marquee-wrapper {
       display: flex;
       align-items: center;
@@ -431,16 +428,11 @@
       color: var(--ink-secondary);
     }
 
-    .marquee-wrapper:hover .marquee-track span {
-      animation-play-state: paused;
-    }
-
     @keyframes marqueeScroll {
       0% { transform: translate(0, 0); }
       100% { transform: translate(-100%, 0); }
     }
 
-    /* Toggle Switch สำหรับจัดการประกาศแอดมิน */
     .toggle-switch {
       display: inline-flex;
       align-items: center;
@@ -489,7 +481,6 @@
       color: var(--ink-secondary);
     }
 
-    /* Form Elements */
     .form-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -569,12 +560,6 @@
       transform: translateY(-1px);
     }
 
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-
     .btn-secondary {
       background: var(--surface-alt);
       color: var(--ink);
@@ -635,7 +620,6 @@
       color: var(--ink-secondary);
     }
 
-    /* Admin Navigation Tabs */
     .admin-tabs {
       display: flex;
       flex-wrap: wrap;
@@ -669,7 +653,6 @@
       border-color: var(--brand);
     }
 
-    /* Tables */
     .table-wrap {
       width: 100%;
       overflow-x: auto;
@@ -719,61 +702,10 @@
       font-weight: 600;
     }
 
-    .badge-req {
-      background: var(--danger-soft);
-      color: #ff4b72;
-      border: 1px solid #fecaca;
-    }
-
-    .badge-opt {
-      background: var(--surface-alt);
-      color: var(--ink-secondary);
-      border: 1px solid var(--border);
-    }
-
     .badge-matched {
       background: var(--success-soft);
       color: #10b981;
       border: 1px solid #bbf7d0;
-    }
-
-    .badge-unmatched {
-      background: var(--warning-soft);
-      color: #f59e0b;
-      border: 1px solid #fde68a;
-    }
-
-    .house-chip-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      max-height: 220px;
-      overflow-y: auto;
-      padding: var(--space-3);
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-    }
-
-    .house-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .house-chip button {
-      border: none;
-      background: none;
-      color: var(--danger);
-      cursor: pointer;
-      padding: 0 2px;
-      font-weight: bold;
     }
 
     .modal-backdrop {
@@ -822,7 +754,6 @@
 
     .hidden { display: none !important; }
 
-    /* Responsive Mobile Layout */
     @media (max-width: 768px) {
       .header-inner { padding: 10px var(--space-4); }
       .brand-icon, .brand-subtitle, .cutoff-badge { display: none !important; }
@@ -849,7 +780,6 @@
 </head>
 <body>
 
-  <!-- Top Header with Real-Sync & Project Title -->
   <header class="app-header no-print">
     <div class="header-inner">
       <div class="brand-group">
@@ -888,10 +818,7 @@
 
   <main class="container">
 
-    <!-- ==================== 1. USER PORTAL (หน้าบ้าน) ==================== -->
     <section id="viewUserPortal">
-
-      <!-- Announcement Slideshow -->
       <div class="slideshow-wrapper" id="userSlideshow" onmouseenter="handleSlideshowHover(true)" onmouseleave="handleSlideshowHover(false)">
         <div class="slide-empty" id="slideEmptyState">
           <div class="slide-empty-title">📢 พื้นที่แสดงภาพประกาศนิติบุคคล (สไลด์โชว์วนอัตโนมัติ)</div>
@@ -903,7 +830,6 @@
         <div class="slide-dots hidden" id="slideDotsContainer"></div>
       </div>
 
-      <!-- User Request Form -->
       <div class="card">
         <div class="card-header" id="userFormCardHeader">
           <div>
@@ -915,7 +841,6 @@
 
         <form id="userRequestForm" onsubmit="handleUserRequestSubmit(event)" novalidate>
           <div class="form-grid">
-            <!-- House Number -->
             <div class="form-group">
               <label class="form-label" for="reqHouseInput">
                 บ้านเลขที่ / ห้องชุด <span class="req-star">*</span>
@@ -936,7 +861,6 @@
               </span>
             </div>
 
-            <!-- Pickup Place -->
             <div class="form-group">
               <label class="form-label" for="reqLocationSelect">
                 จุดรับพัสดุ (Pickup Place) <span class="req-star">*</span>
@@ -947,7 +871,6 @@
               <span class="form-hint">ดึงรายการสถานที่รับจากหลังบ้านแบบ Real-time</span>
             </div>
 
-            <!-- Phone Number (Hidden by default, shows only when required) -->
             <div class="form-group hidden" id="reqPhoneGroup">
               <label class="form-label" for="reqPhoneInput">
                 เบอร์โทรศัพท์ติดต่อ <span class="req-star">* (บังคับกรอกสำหรับจุดรับนี้)</span>
@@ -969,7 +892,6 @@
           </button>
         </form>
 
-        <!-- Blue Card for Latest Submission -->
         <div id="latestRequestBlueBox" class="latest-submission-box hidden">
           <div class="latest-submission-title">
             <span>✅ ส่งคำขอรับพัสดุล่าสุดสำเร็จ</span>
@@ -978,7 +900,6 @@
           <div class="latest-grid" id="latestRequestSummaryContent"></div>
         </div>
 
-        <!-- แถบประกาศแจ้งเตือนด่วนหน้าบ้าน (ไม่มีปุ่มรับทราบ แสดงค้างไว้ตลอดเมื่อเปิดใช้งาน) -->
         <div class="notice-ticker-card" id="userTextNoticeBox">
           <div class="notice-ticker-icon">📢</div>
           <div class="notice-ticker-content">
@@ -987,22 +908,16 @@
           </div>
         </div>
 
-        <!-- แถบตัววิ่งแนวนอน (Marquee - ตัวเลือกเสริม ซ่อนไว้เป็นค่าเริ่มต้น) -->
         <div class="marquee-wrapper" id="userMarqueeBox" style="display: none;">
           <span class="marquee-badge">ประกาศ</span>
           <div class="marquee-track">
             <span id="marqueeNoticeText">⏰ ตัดรอบพัสดุประจำวันเวลา 21:00 น.</span>
           </div>
         </div>
-
       </div>
-
     </section>
 
-    <!-- ==================== 2. ADMIN PORTAL (หลังบ้าน) ==================== -->
     <section id="viewAdminPortal" class="hidden">
-
-      <!-- Admin Login Gate -->
       <div id="adminLoginGate" class="card" style="max-width: 460px; margin: 40px auto;">
         <div class="card-header">
           <div>
@@ -1027,10 +942,7 @@
         </form>
       </div>
 
-      <!-- Authenticated Admin Workspace -->
       <div id="adminWorkspace" class="hidden">
-
-        <!-- Admin Navigation Tabs -->
         <div class="admin-tabs no-print">
           <button type="button" class="admin-tab-btn active" data-tab="tabParcels" onclick="switchAdminTab('tabParcels')">
             📦 1. พัสดุประจำวัน (ตัดรอบ 21:00)
@@ -1058,57 +970,14 @@
           </button>
         </div>
 
-        <!-- ==================== TAB 1: DAILY PARCELS ==================== -->
         <div id="tabParcels" class="admin-tab-pane">
           <div class="card">
             <div class="card-header">
               <div>
                 <h2 class="card-title">📦 จัดการรายการพัสดุประจำวัน (ตัดรอบ 21:00 น.)</h2>
-                <p class="card-desc">นำเข้าไฟล์ Excel (.xlsx, .csv) หรือเพิ่ม/แก้ไขพัสดุรายชิ้น (Smart Sync ล้างเฉพาะพัสดุค้างจ่ายเมื่อถึง 21:00 น.)</p>
-              </div>
-              <div style="display:flex; gap: 8px; flex-wrap: wrap;">
-                <label class="btn btn-secondary btn-sm" style="cursor:pointer;">
-                  📂 นำเข้า Excel / CSV
-                  <input type="file" id="parcelExcelInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleParcelFileImport(event)">
-                </label>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="downloadParcelTemplate()">
-                  ⬇️ ดาวน์โหลดเทมเพลตพัสดุ
-                </button>
+                <p class="card-desc">นำเข้าไฟล์ Excel หรือเพิ่มพัสดุรายชิ้น</p>
               </div>
             </div>
-
-            <form id="singleParcelForm" onsubmit="handleSaveSingleParcel(event)" style="background: var(--surface-alt); padding: 14px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
-              <input type="hidden" id="editParcelId" value="">
-              <div class="form-grid" style="margin-bottom: 8px;">
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="parcelHouseInput">บ้านเลขที่ <span class="req-star">*</span></label>
-                  <input type="text" id="parcelHouseInput" class="input" list="houseDatalist" placeholder="เช่น 14 หรือ 62/0014" required onblur="handleHouseAutoFormat(this)">
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="parcelCarrierInput">เลขอ้างอิง <span class="req-star">*</span></label>
-                  <input type="text" id="parcelCarrierInput" class="input" placeholder="เช่น 6911-00012" required>
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="parcelRecipientInput">ประเภทพัสดุ</label>
-                  <input type="text" id="parcelRecipientInput" class="input" list="parcelTypeSuggestions" placeholder="เช่น กล่องพัสดุ / ซองเอกสาร">
-                  <datalist id="parcelTypeSuggestions">
-                    <option value="กล่องพัสดุ"></option>
-                    <option value="ซองเอกสาร"></option>
-                    <option value="พัสดุชิ้นใหญ่"></option>
-                    <option value="อาหารสด / แช่เย็น"></option>
-                  </datalist>
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="parcelDateInput">วันที่รับเข้า</label>
-                  <input type="date" id="parcelDateInput" class="input" required>
-                </div>
-              </div>
-              <div style="display:flex; justify-content:flex-end; gap: 8px; margin-top: 10px;">
-                <button type="button" id="cancelEditParcelBtn" class="btn btn-secondary btn-sm hidden" onclick="resetSingleParcelForm()">ยกเลิก</button>
-                <button type="submit" class="btn btn-primary btn-sm" id="saveParcelBtn">➕ เพิ่มพัสดุรายชิ้น</button>
-              </div>
-            </form>
-
             <div class="table-wrap">
               <table>
                 <thead>
@@ -1128,14 +997,12 @@
           </div>
         </div>
 
-        <!-- ==================== TAB 2: SAVED REQUESTS (คัดแยก & ออกรายงาน) ==================== -->
         <div id="tabSavedRequests" class="admin-tab-pane hidden">
-          
           <div class="card" style="border-color: var(--brand);">
             <div class="card-header">
               <div>
                 <h2 class="card-title">📦 ตารางแสดงจำนวนพัสดุที่จับคู่แล้วในแต่ละบ้านเลขที่</h2>
-                <p class="card-desc">ติ๊กเลือกห้องชุดที่ต้องการสั่งจ่ายและออกรายงาน A4 PDF (ระบบจะตัดรอบแยกเฉพาะห้องที่เลือก และล้างออกจากคิวเพื่อป้องกันการออกซ้ำซ้อน)</p>
+                <p class="card-desc">ติ๊กเลือกห้องชุดที่ต้องการสั่งจ่ายและออกรายงาน A4 PDF</p>
               </div>
               <div>
                 <button type="button" class="btn btn-primary" onclick="handlePrintSelectedRequestsAndClear()">
@@ -1143,7 +1010,6 @@
                 </button>
               </div>
             </div>
-
             <div class="table-wrap">
               <table>
                 <thead>
@@ -1163,64 +1029,15 @@
               </table>
             </div>
           </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">📋 รายการคำขอแจ้งรับพัสดุทั้งหมด (Saved Requests)</h2>
-                <p class="card-desc">จัดการและตรวจสอบประวัติคำขอที่ลูกบ้านส่งเข้ามา</p>
-              </div>
-              <div style="display:flex; gap: 8px; flex-wrap: wrap;">
-                <label class="btn btn-secondary btn-sm" style="cursor:pointer;">
-                  📂 นำเข้า Excel / CSV
-                  <input type="file" id="requestExcelInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleRequestFileImport(event)">
-                </label>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="downloadRequestTemplate()">
-                  ⬇️ เทมเพลตคำขอ
-                </button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="exportRequestsToExcel()">
-                  📊 ส่งออก Excel ทั้งหมด
-                </button>
-                <button type="button" class="btn btn-danger btn-sm" onclick="handleDeleteAllMatchedRequests()">
-                  🗑️ ลบคำขอที่จับคู่สำเร็จทั้งหมด
-                </button>
-              </div>
-            </div>
-
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>วันที่แจ้ง</th>
-                    <th>เวลา</th>
-                    <th>บ้านเลขที่</th>
-                    <th>จุดรับที่ต้องการ</th>
-                    <th>เบอร์โทรศัพท์</th>
-                    <th>สถานะจับคู่</th>
-                    <th style="text-align:right;">จัดการ</th>
-                  </tr>
-                </thead>
-                <tbody id="savedRequestsTbody"></tbody>
-              </table>
-            </div>
-          </div>
-
         </div>
 
-        <!-- ==================== TAB 3: REPORT A4 PDF / EXCEL ==================== -->
         <div id="tabReportA4" class="admin-tab-pane hidden">
-          
           <div class="card no-print">
             <div class="card-header">
               <div>
-                <h2 class="card-title">📜 ประวัติการออกรายงานพัสดุ (พิมพ์ PDF ซ้ำ / ดาวน์โหลดซ้ำ)</h2>
-                <p class="card-desc">ระบบบันทึกประวัติแยกตามแต่ละครั้งที่กดออกรายงาน สามารถคลิกสั่งพิมพ์ PDF หรือกู้คืนข้อมูลกลับเข้าคิวได้ทุกเมื่อ</p>
+                <h2 class="card-title">📜 ประวัติการออกรายงานพัสดุ</h2>
               </div>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="handleClearAllReportHistory()">
-                🧹 ล้างประวัติทั้งหมด
-              </button>
             </div>
-
             <div class="table-wrap">
               <table>
                 <thead>
@@ -1235,96 +1052,21 @@
               </table>
             </div>
           </div>
-
-          <div class="card">
-            <div class="card-header no-print">
-              <div>
-                <h2 class="card-title">📄 พรีวิวรายงานจ่ายพัสดุ A4 PDF ล่าสุด</h2>
-                <p class="card-desc">แสดงรายการเรียงตามบ้านเลขที่อัตโนมัติ พร้อมเว้นช่องว่างระหว่างแต่ละห้องชุด</p>
-              </div>
-              <div style="display:flex; gap: 8px; flex-wrap: wrap;" id="reportActionButtonsArea">
-                <button type="button" class="btn btn-primary" onclick="handlePrintLatestReport()">
-                  📄 สั่งพิมพ์ A4 PDF (Save to PDF)
-                </button>
-                <button type="button" class="btn btn-secondary" onclick="handleExportExcelLatestReport()">
-                  📊 ส่งออก Excel (.xlsx)
-                </button>
-              </div>
-            </div>
-
-            <div class="a4-preview-sheet" id="a4ReportContainer"></div>
-          </div>
         </div>
 
-        <!-- ==================== TAB 4: LOCATIONS & HOUSES ==================== -->
         <div id="tabLocationsHouses" class="admin-tab-pane hidden">
           <div class="card">
             <div class="card-header">
-              <div>
-                <h2 class="card-title">📍 การจัดการสถานที่รับพัสดุ (Locations)</h2>
-                <p class="card-desc">เพิ่ม/ลบ/แก้ไข ชื่อจุดรับ และกำหนดสถานะการบังคับเบอร์โทรได้อิสระ</p>
-              </div>
+              <h2 class="card-title">📍 การจัดการสถานที่รับพัสดุ</h2>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ชื่อสถานที่รับพัสดุ</th>
-                    <th>เงื่อนไขเบอร์โทรศัพท์</th>
-                    <th style="text-align:right;">จัดการ</th>
-                  </tr>
-                </thead>
-                <tbody id="locationsTbody"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">🏘️ การสร้างช่วงบ้านเลขที่อัตโนมัติ (House Generator)</h2>
-                <p class="card-desc">ระบุ Prefix และช่วงตัวเลขเพื่อสร้างบ้านเลขที่ลง Datalist ในคลิกเดียว</p>
-              </div>
-            </div>
-            <form onsubmit="handleGenerateHouses(event)" style="background: var(--surface-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
-              <div class="form-grid">
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="genPrefix">คำนำหน้า (Prefix) <span class="req-star">*</span></label>
-                  <input type="text" id="genPrefix" class="input" value="62/" required>
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="genStart">เลขเริ่มต้น <span class="req-star">*</span></label>
-                  <input type="number" id="genStart" class="input" value="1" min="1" required>
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="genEnd">เลขสิ้นสุด <span class="req-star">*</span></label>
-                  <input type="number" id="genEnd" class="input" value="50" min="1" required>
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="genPad">จำนวนหลัก</label>
-                  <select id="genPad" class="select">
-                    <option value="4" selected>4 หลัก (เช่น 62/0001)</option>
-                    <option value="3">3 หลัก (เช่น 62/001)</option>
-                  </select>
-                </div>
-              </div>
-              <div style="display:flex; justify-content:flex-end; margin-top: 12px;">
-                <button type="submit" class="btn btn-primary">⚡ สร้างรายการบ้านเลขที่</button>
-              </div>
-            </form>
-            <div class="house-chip-list" id="houseChipContainer"></div>
           </div>
         </div>
 
-        <!-- ==================== TAB 5: ANNOUNCEMENTS & ADMINS ==================== -->
         <div id="tabAnnouncementsAdmins" class="admin-tab-pane hidden">
-          
-          <!-- ฟอร์มจัดการแถบข้อความประกาศหน้าบ้าน -->
           <div class="card" style="border-color: var(--brand);">
             <div class="card-header">
               <div>
-                <h2 class="card-title">📢 ตั้งค่าแถบข้อความประกาศหน้าบ้าน (Notice Ticker)</h2>
-                <p class="card-desc">แก้ไขข้อความแจ้งเตือนด่วนที่แสดงใต้แบบฟอร์มหน้าบ้าน พร้อมซิงค์ขึ้น Cloud ทันที</p>
+                <h2 class="card-title">📢 ตั้งค่าแถบข้อความประกาศหน้าบ้าน</h2>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="adminNoticeEnabled" checked>
@@ -1332,17 +1074,14 @@
                 <span class="toggle-label" id="adminNoticeStatusText">เปิดแสดงผล</span>
               </label>
             </div>
-
             <div class="form-group">
               <label class="form-label" for="adminNoticeTitle">หัวข้อประกาศ (ตัวหนา)</label>
               <input type="text" id="adminNoticeTitle" class="input" placeholder="เช่น ข้อความประชาสัมพันธ์จากนิติบุคคล:">
             </div>
-
             <div class="form-group">
               <label class="form-label" for="adminNoticeMessage">รายละเอียดข้อความประกาศ</label>
-              <textarea id="adminNoticeMessage" class="textarea" rows="3" placeholder="กรอกข้อความรายละเอียดประกาศแจ้งลูกบ้าน..."></textarea>
+              <textarea id="adminNoticeMessage" class="textarea" rows="3" placeholder="กรอกข้อความรายละเอียด..."></textarea>
             </div>
-
             <div style="display:flex; justify-content:flex-end; align-items:center; gap: 12px; margin-top: 10px;">
               <span id="adminNoticeSaveStatus" style="font-size: 13px; font-weight: 600;"></span>
               <button type="button" id="btnSaveNotice" class="btn btn-primary" onclick="saveAdminNoticeToCloud()">
@@ -1350,61 +1089,12 @@
               </button>
             </div>
           </div>
-
-          <!-- การจัดการภาพประกาศสไลด์โชว์ -->
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">🖼️ การจัดการภาพประกาศหน้าบ้าน (Slideshow)</h2>
-                <p class="card-desc">รองรับการอัปโหลดหรือแก้ไขภาพประกาศขนาด 2:1 (1200x600 px)</p>
-              </div>
-            </div>
-            <form onsubmit="handleAddAnnouncement(event)" style="background: var(--surface-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
-              <input type="hidden" id="editAnnouncementId" value="">
-              <div class="form-grid">
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="annTitleInput">หัวข้อประกาศ</label>
-                  <input type="text" id="annTitleInput" class="input" placeholder="เช่น แจ้งเวลาทำการห้องนิติบุคคล">
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="annUrlInput">ลิงก์รูปภาพ (URL)</label>
-                  <input type="text" id="annUrlInput" class="input" placeholder="วางลิงก์รูปภาพ">
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="annFileInput">หรือเลือกไฟล์ภาพ</label>
-                  <input type="file" id="annFileInput" class="input" accept="image/*">
-                </div>
-              </div>
-              <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
-                <button type="button" id="cancelAnnEditBtn" class="btn btn-secondary hidden" onclick="resetAnnouncementForm()">ยกเลิก</button>
-                <button type="submit" class="btn btn-primary" id="saveAnnBtn">➕ บันทึกภาพประกาศ</button>
-              </div>
-            </form>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ลำดับ</th>
-                    <th>ภาพตัวอย่าง</th>
-                    <th>หัวข้อประกาศ</th>
-                    <th>จัดเรียงลำดับ</th>
-                    <th style="text-align:right;">จัดการ</th>
-                  </tr>
-                </thead>
-                <tbody id="announcementsTbody"></tbody>
-              </table>
-            </div>
-          </div>
         </div>
 
-        <!-- ==================== TAB 6: BACKUP & RESTORE ==================== -->
         <div id="tabBackupDelete" class="admin-tab-pane hidden">
           <div class="card">
             <div class="card-header">
-              <div>
-                <h2 class="card-title">☁️ การเชื่อมต่อ Google Sheets & สำรองไฟล์</h2>
-                <p class="card-desc">บันทึกหรืออัปเดตลิงก์ Web App URL เพื่อซิงค์ข้อมูลกับชีต</p>
-              </div>
+              <h2 class="card-title">☁️ การเชื่อมต่อ Google Sheets & สำรองไฟล์</h2>
             </div>
             <div class="form-grid">
               <div class="form-group" style="margin-bottom:0;">
@@ -1414,46 +1104,25 @@
                   <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveGasUrl(true)">💾 บันทึกลิงก์</button>
                 </div>
               </div>
-              <div class="form-group" style="margin-bottom:0; justify-content:flex-end;">
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <button type="button" class="btn btn-secondary" onclick="handleExportBackupJson()">💾 ดาวน์โหลดสำรอง (.json)</button>
-                  <button type="button" class="btn btn-primary" onclick="handleBackupToGoogleDrive()">☁️ สำรองลง Google Drive</button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        <!-- ==================== TAB 7: SETTINGS ==================== -->
         <div id="tabSettings" class="admin-tab-pane hidden">
           <div class="card">
             <div class="card-header">
-              <div>
-                <h2 class="card-title">🏢 การตั้งค่าชื่อโครงการ / อาคาร</h2>
-                <p class="card-desc">กำหนดชื่อโครงการเพื่อแสดงบน Header และในใบรายงาน A4</p>
-              </div>
+              <h2 class="card-title">🏢 การตั้งค่าชื่อโครงการ</h2>
             </div>
-            <form onsubmit="handleSaveProjectName(event)" style="display:flex; gap:10px; align-items:flex-end;">
-              <div style="flex:1;">
-                <label class="form-label" for="projectNameInput">ชื่อโครงการ</label>
-                <input type="text" id="projectNameInput" class="input" required>
-              </div>
-              <button type="submit" class="btn btn-primary">💾 บันทึกชื่อโครงการ</button>
-            </form>
           </div>
         </div>
-
       </div>
     </section>
-
   </main>
 
-  <!-- Footer Credit -->
-  <footer class="no-print" style="text-align: center; padding: 24px 0 32px; font-size: 13.5px; color: var(--muted); font-weight: 600; letter-spacing: 0.02em;">
+  <footer class="no-print" style="text-align: center; padding: 24px 0 32px; font-size: 13.5px; color: var(--muted); font-weight: 600;">
     © 2026 APW.Gasie
   </footer>
 
-  <!-- Confirmation Modal -->
   <div class="modal-backdrop" id="customConfirmModal" role="dialog" aria-modal="true">
     <div class="modal-box">
       <h3 class="modal-title" id="modalTitleText">ยืนยันการทำรายการ</h3>
@@ -1472,8 +1141,6 @@
     let currentSlideIndex = 0;
     let isAdminAuthenticated = false;
     let currentLoggedInAdmin = null;
-    let lastAutoClearDateKey = "";
-    let slideTimer = null;
     let isSlideshowHovered = false;
 
     function sanitizeInput(rawVal) {
@@ -1498,31 +1165,24 @@
     window.appState = {
       requests: [],
       parcels: [],
-      houses: [
-        "62/0001", "62/0002", "62/0003", "62/0004", "62/0005",
-        "62/0006", "62/0007", "62/0008", "62/0009", "62/0010"
-      ],
+      houses: ["62/0001", "62/0002", "62/0003", "62/0004", "62/0005"],
       locations: [
         { id: "loc-1", name: "หน้าห้องนิติบุคคล", requirePhone: false },
-        { id: "loc-2", name: "ฝากใส่ตู้ HIVE BOX", requirePhone: true },
-        { id: "loc-3", name: "ฝากป้อม รปภ. (หลัง 18:00 น.)", requirePhone: true }
+        { id: "loc-2", name: "ฝากใส่ตู้ HIVE BOX", requirePhone: true }
       ],
-      announcements: [
-        { id: "ann-1", title: "ยินดีต้อนรับสู่โครงการอาคารชุดนิติบุคคล", imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200" }
-      ],
+      announcements: [],
       notice: {
         enabled: true,
         title: "ข้อความประชาสัมพันธ์จากนิติบุคคล:",
-        message: "ตัดรอบพัสดุประจำวันเวลา 21:00 น. กรุณานำบัตรประชาชนหรือหลักฐานแสดงตนทุกครั้งเมื่อมารับพัสดุหน้าห้องนิติบุคคล"
+        message: "ตัดรอบพัสดุประจำวันเวลา 21:00 น. กรุณานำบัตรประชาชนมาทุกครั้งเมื่อมารับพัสดุ"
       },
       admins: [
-        { id: "adm-1", username: "admin", password: "1234", displayName: "ผู้ดูแลระบบสูงสุด", role: "Super Admin", permissions: {}, active: true }
+        { id: "adm-1", username: "admin", password: "1234", displayName: "ผู้ดูแลระบบ", active: true }
       ],
       gasUrl: "",
       lastUpdated: 0,
       cloudPollIntervalSec: 20,
       projectName: "โครงการอาคารชุดนิติบุคคล",
-      slideshowSpeedMs: 5000,
       reportHistory: []
     };
 
@@ -1535,8 +1195,7 @@
           if (Array.isArray(parsed.parcels)) appState.parcels = parsed.parcels;
           if (Array.isArray(parsed.houses)) appState.houses = parsed.houses;
           if (Array.isArray(parsed.locations)) appState.locations = parsed.locations;
-          if (Array.isArray(parsed.announcements)) appState.announcements = parsed.announcements;
-          if (parsed.notice && typeof parsed.notice === "object") appState.notice = parsed.notice;
+          if (parsed.notice) appState.notice = parsed.notice;
           if (Array.isArray(parsed.admins)) appState.admins = parsed.admins;
           if (typeof parsed.gasUrl === "string") appState.gasUrl = parsed.gasUrl;
           if (typeof parsed.projectName === "string") appState.projectName = parsed.projectName;
@@ -1564,14 +1223,41 @@
       setTimeout(() => { isSavingOrDeleting = false; }, 400);
     }
 
-    // -------------------------------------------------------------------------
-    // ระบบจัดการแถบประกาศข้อความประชาสัมพันธ์ (แสดงค้างไว้เมื่อเปิดใช้งาน)
-    // -------------------------------------------------------------------------
+    // ฟังก์ชันที่เพิ่มเข้ามาใหม่เพื่อป้องกัน Error
+    function handleSlideshowHover(isHovered) {
+      isSlideshowHovered = isHovered;
+    }
+
+    function switchPortalMode(mode) {
+      const userPortal = document.getElementById("viewUserPortal");
+      const adminPortal = document.getElementById("viewAdminPortal");
+      const btnUser = document.getElementById("btnModeUser");
+      const btnAdmin = document.getElementById("btnModeAdmin");
+
+      if (mode === "admin") {
+        if (userPortal) userPortal.classList.add("hidden");
+        if (adminPortal) adminPortal.classList.remove("hidden");
+        if (btnUser) btnUser.classList.remove("active");
+        if (btnAdmin) btnAdmin.classList.add("active");
+
+        const loginGate = document.getElementById("adminLoginGate");
+        const workspace = document.getElementById("adminWorkspace");
+        if (loginGate && workspace) {
+          loginGate.classList.toggle("hidden", isAdminAuthenticated);
+          workspace.classList.toggle("hidden", !isAdminAuthenticated);
+        }
+      } else {
+        if (userPortal) userPortal.classList.remove("hidden");
+        if (adminPortal) adminPortal.classList.add("hidden");
+        if (btnUser) btnUser.classList.add("active");
+        if (btnAdmin) btnAdmin.classList.remove("active");
+      }
+    }
+
     function renderAnnouncement(notice) {
       if (!notice) return;
       appState.notice = notice;
 
-      // 1. ซิงค์ค่าลงฟอร์มหลังบ้าน (ข้ามเมื่อแอดมินกำลังพิมพ์อยู่ในช่องนั้น)
       const adminEnabledEl = document.getElementById("adminNoticeEnabled");
       const adminTitleEl = document.getElementById("adminNoticeTitle");
       const adminMsgEl = document.getElementById("adminNoticeMessage");
@@ -1590,38 +1276,20 @@
         adminMsgEl.value = notice.message || "";
       }
 
-      // 2. ซิงค์อัปเดตหน้าแสดงผลฝั่งหน้าบ้าน
       const tickerBox = document.getElementById("userTextNoticeBox");
-      const marqueeBox = document.getElementById("userMarqueeBox");
       const titleEl = document.getElementById("userNoticeTitle");
       const msgEl = document.getElementById("userNoticeMessage");
-      const marqueeEl = document.getElementById("marqueeNoticeText");
 
       const isEnabled = notice.enabled && notice.message && notice.message.trim() !== "";
       if (!isEnabled) {
         if (tickerBox) tickerBox.style.display = "none";
-        if (marqueeBox) marqueeBox.style.display = "none";
         return;
       }
 
-      const currentMsg = notice.message.trim();
       if (titleEl) titleEl.textContent = notice.title || "ประกาศ:";
-      if (msgEl) msgEl.textContent = currentMsg;
-      if (marqueeEl) marqueeEl.textContent = `${notice.title || ""} ${currentMsg}`;
-
-      if (tickerBox) {
-        tickerBox.style.display = "flex";
-      }
+      if (msgEl) msgEl.textContent = notice.message.trim();
+      if (tickerBox) tickerBox.style.display = "flex";
     }
-
-    document.addEventListener("change", (e) => {
-      if (e.target && e.target.id === "adminNoticeEnabled") {
-        const statusText = document.getElementById("adminNoticeStatusText");
-        if (statusText) {
-          statusText.textContent = e.target.checked ? "เปิดแสดงผล" : "ซ่อนประกาศ";
-        }
-      }
-    });
 
     async function fetchFromGoogleSheetsCloud(isManual = false) {
       if (!appState.gasUrl || appState.gasUrl.startsWith("ใส่_URL") || isSavingOrDeleting) {
@@ -1638,13 +1306,6 @@
           if (result.notice) renderAnnouncement(result.notice);
           if (Array.isArray(result.requests)) appState.requests = result.requests;
           if (Array.isArray(result.parcels)) appState.parcels = result.parcels;
-          if (Array.isArray(result.houses)) appState.houses = result.houses;
-          if (Array.isArray(result.locations)) appState.locations = result.locations;
-          if (Array.isArray(result.announcements)) appState.announcements = result.announcements;
-          if (Array.isArray(result.admins)) appState.admins = result.admins;
-          if (typeof result.projectName === "string") appState.projectName = result.projectName;
-          if (Array.isArray(result.reportHistory)) appState.reportHistory = result.reportHistory;
-
           saveStateToStorage(true);
           renderAll();
           if (isManual) {
@@ -1660,11 +1321,9 @@
       const enabled = document.getElementById("adminNoticeEnabled").checked;
       const title = document.getElementById("adminNoticeTitle").value.trim() || "ข้อความประชาสัมพันธ์จากนิติบุคคล:";
       const message = document.getElementById("adminNoticeMessage").value.trim();
-      const btnSave = document.getElementById("btnSaveNotice");
       const statusEl = document.getElementById("adminNoticeSaveStatus");
 
       const updatedNotice = { enabled, title, message };
-
       renderAnnouncement(updatedNotice);
       saveStateToStorage(true);
 
@@ -1678,27 +1337,12 @@
       }
 
       try {
-        if (btnSave) {
-          btnSave.disabled = true;
-          btnSave.textContent = "⏳ กำลังบันทึก...";
-        }
-        if (statusEl) statusEl.textContent = "";
-
-        const payload = {
-          action: "updateNotice",
-          enabled: enabled,
-          title: title,
-          message: message
-        };
-
         const response = await fetch(appState.gasUrl, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ action: "updateNotice", enabled, title, message })
         });
-
         const result = await response.json();
-
         if (result && result.status === "success") {
           renderAnnouncement(result.notice || updatedNotice);
           if (statusEl) {
@@ -1706,179 +1350,15 @@
             statusEl.textContent = "✅ บันทึกและซิงค์ขึ้น Cloud เรียบร้อยแล้ว!";
             setTimeout(() => { statusEl.textContent = ""; }, 4000);
           }
-        } else {
-          throw new Error((result && result.message) || "บันทึกไม่สำเร็จ");
         }
       } catch (error) {
-        console.error("Save notice error:", error);
         if (statusEl) {
           statusEl.style.color = "#f87171";
           statusEl.textContent = "⚠️ บันทึกในเครื่องแล้ว แต่ซิงค์ Cloud ไม่สำเร็จ";
         }
-      } finally {
-        if (btnSave) {
-          btnSave.disabled = false;
-          btnSave.textContent = "💾 บันทึกข้อความประกาศขึ้นระบบ";
-        }
       }
     }
 
-    // -------------------------------------------------------------------------
-    // ระบบสำรองข้อมูลลง Google Drive & JSON
-    // -------------------------------------------------------------------------
-    function handleExportBackupJson() {
-      const blob = new Blob([JSON.stringify(appState, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Parcel_Backup_${getTodayDateString()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    async function handleBackupToGoogleDrive() {
-      if (!appState.gasUrl || appState.gasUrl.startsWith("ใส่_URL")) {
-        showNoticeModal("ยังไม่ได้เชื่อมต่อ Cloud", "กรุณาระบุ Google Apps Script URL ก่อนสำรองข้อมูลลง Google Drive");
-        return;
-      }
-      try {
-        const res = await fetch(appState.gasUrl, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "backupToDrive", data: appState })
-        });
-        const result = await res.json();
-        if (result && result.status === "success") {
-          showNoticeModal("สำรองไฟล์สำเร็จ", `บันทึกไฟล์สำรอง "${result.fileName}" ลง Google Drive เรียบร้อยแล้ว`);
-        } else {
-          throw new Error(result.message || "สำรองไม่สำเร็จ");
-        }
-      } catch (err) {
-        showNoticeModal("เกิดข้อผิดพลาด", "ไม่สามารถสำรองไฟล์ลง Google Drive ได้ กรุณาตรวจสอบสิทธิ์ DriveApp ใน GAS");
-      }
-    }
-
-    // -------------------------------------------------------------------------
-    // ระบบจัดการบ้านเลขที่และคำขอหน้าบ้าน
-    // -------------------------------------------------------------------------
-    function formatHouseNumber(rawInput) {
-      const cleaned = sanitizeInput(rawInput).replace(/\s+/g, "");
-      if (!cleaned) return "";
-
-      if (appState.houses.includes(cleaned)) return cleaned;
-
-      if (/^\d+$/.test(cleaned)) {
-        let defaultPrefix = "62/";
-        if (appState.houses.length > 0) {
-          const match = appState.houses[0].match(/^([^\/]+\/)/);
-          if (match) defaultPrefix = match[1];
-        }
-        return defaultPrefix + String(parseInt(cleaned, 10)).padStart(4, "0");
-      }
-
-      const slashMatch = cleaned.match(/^([^\/]+)\/(\d+)$/);
-      if (slashMatch) {
-        return slashMatch[1] + "/" + String(parseInt(slashMatch[2], 10)).padStart(4, "0");
-      }
-      return cleaned;
-    }
-
-    function handleHouseAutoFormat(el) {
-      if (el && el.value.trim()) el.value = formatHouseNumber(el.value);
-    }
-
-    function handlePickupLocationChange() {
-      const sel = document.getElementById("reqLocationSelect");
-      const phoneGroup = document.getElementById("reqPhoneGroup");
-      const phoneInput = document.getElementById("reqPhoneInput");
-      const locObj = appState.locations.find(l => l.name === (sel ? sel.value : ""));
-
-      if (locObj && locObj.requirePhone) {
-        if (phoneGroup) phoneGroup.classList.remove("hidden");
-        if (phoneInput) phoneInput.required = true;
-      } else {
-        if (phoneGroup) phoneGroup.classList.add("hidden");
-        if (phoneInput) {
-          phoneInput.required = false;
-          phoneInput.value = "";
-        }
-      }
-    }
-
-    function handleUserRequestSubmit(e) {
-      e.preventDefault();
-      const houseInput = document.getElementById("reqHouseInput");
-      const locSelect = document.getElementById("reqLocationSelect");
-      const phoneInput = document.getElementById("reqPhoneInput");
-      const errorEl = document.getElementById("userFormError");
-
-      const house = formatHouseNumber(houseInput.value);
-      const locationName = sanitizeInput(locSelect.value);
-      const locObj = appState.locations.find(l => l.name === locationName);
-      const phone = sanitizeInput(phoneInput.value) || "-";
-
-      if (!house || !locationName) {
-        if (errorEl) {
-          errorEl.textContent = "กรุณากรอกบ้านเลขที่และเลือกจุดรับพัสดุให้ครบถ้วน";
-          errorEl.classList.remove("hidden");
-        }
-        return;
-      }
-
-      if (locObj && locObj.requirePhone && (!phone || phone === "-")) {
-        if (errorEl) {
-          errorEl.textContent = "กรุณากรอกเบอร์โทรศัพท์ติดต่อสำหรับจุดรับพัสดุนี้";
-          errorEl.classList.remove("hidden");
-        }
-        return;
-      }
-
-      if (errorEl) errorEl.classList.add("hidden");
-
-      const newReq = {
-        id: "req-" + Date.now(),
-        house,
-        locationName,
-        phone,
-        date: getTodayDateString(),
-        time: getCurrentTimeString(),
-        matched: false
-      };
-
-      appState.requests.unshift(newReq);
-      reconcileRequestsAndParcels();
-      saveStateToStorage();
-      renderAll();
-
-      const blueBox = document.getElementById("latestRequestBlueBox");
-      const summaryContent = document.getElementById("latestRequestSummaryContent");
-      if (blueBox && summaryContent) {
-        summaryContent.innerHTML = `
-          <div><strong>บ้านเลขที่:</strong> ${newReq.house}</div>
-          <div><strong>จุดรับพัสดุ:</strong> ${newReq.locationName}</div>
-          <div><strong>เบอร์ติดต่อ:</strong> ${newReq.phone}</div>
-          <div><strong>เวลาที่แจ้ง:</strong> ${newReq.date} ${newReq.time}</div>
-        `;
-        blueBox.classList.remove("hidden");
-      }
-
-      houseInput.value = "";
-      locSelect.value = "";
-      phoneInput.value = "";
-      handlePickupLocationChange();
-      showNoticeModal("ส่งคำขอสำเร็จ", `นิติบุคคลได้รับคำขอของบ้านเลขที่ ${house} เรียบร้อยแล้ว`);
-    }
-
-    function reconcileRequestsAndParcels() {
-      const parcelHouses = new Set(appState.parcels.map(p => p.house));
-      appState.requests.forEach(r => {
-        r.matched = parcelHouses.has(r.house);
-      });
-    }
-
-    // -------------------------------------------------------------------------
-    // ระบบหลังบ้าน: การเข้าสู่ระบบ แท็บ และออกรายงานแยกตามรอบ
-    // -------------------------------------------------------------------------
     function handleAdminLogin(e) {
       e.preventDefault();
       const user = document.getElementById("loginUsername").value.trim();
@@ -1909,148 +1389,6 @@
       switchPortalMode("user");
     }
 
-    function toggleSelectAllMatchedHouses(masterChk) {
-      document.querySelectorAll(".matched-house-select-chk").forEach(chk => {
-        chk.checked = masterChk.checked;
-      });
-    }
-
-    function handlePrintSelectedRequestsAndClear() {
-      const checkedBoxes = document.querySelectorAll(".matched-house-select-chk:checked");
-      if (checkedBoxes.length === 0) {
-        showNoticeModal("ยังไม่ได้เลือกรายการ", "กรุณาติ๊กเครื่องหมายถูกเลือกบ้านเลขที่ที่ต้องการออกรายงาน");
-        return;
-      }
-
-      const selectedHouses = Array.from(checkedBoxes).map(chk => chk.getAttribute("data-house"));
-      
-      showConfirmModal({
-        title: "ยืนยันการออกรายงานและตัดรอบ",
-        message: `ต้องการออกรายงานสำหรับ ${selectedHouses.length} ห้องชุดที่เลือก และเคลียร์ออกจากคิวเพื่อป้องกันการออกซ้ำใช่หรือไม่?`,
-        confirmText: "📄 ยืนยันออกรายงาน",
-        onConfirm: () => {
-          const houseSet = new Set(selectedHouses);
-
-          const frozenRequests = JSON.parse(JSON.stringify(appState.requests.filter(r => houseSet.has(r.house))));
-          const frozenParcels = JSON.parse(JSON.stringify(appState.parcels.filter(p => houseSet.has(p.house))));
-
-          const newBatchReport = {
-            id: "rep-" + Date.now(),
-            timestamp: `${getTodayDateString()} ${getCurrentTimeString()}`,
-            houses: selectedHouses,
-            requests: frozenRequests,
-            parcels: frozenParcels
-          };
-
-          appState.reportHistory.unshift(newBatchReport);
-
-          appState.requests = appState.requests.filter(r => !(houseSet.has(r.house) && r.matched));
-          appState.parcels = appState.parcels.filter(p => !houseSet.has(p.house));
-
-          reconcileRequestsAndParcels();
-          saveStateToStorage();
-          renderAll();
-
-          switchAdminTab("tabReportA4");
-          printReportFromHistory(newBatchReport.id);
-        }
-      });
-    }
-
-    function printReportFromHistory(reportId) {
-      const report = appState.reportHistory.find(r => r.id === reportId);
-      if (!report) return;
-      const html = buildA4ReportHTML(report);
-      const previewEl = document.getElementById("a4ReportContainer");
-      if (previewEl) previewEl.innerHTML = html;
-      executeIsolatedPrint(html);
-    }
-
-    function buildA4ReportHTML(reportObj) {
-      const nitiKey = "หน้าห้องนิติบุคคล / Office";
-      const groups = {};
-      const houseMap = {};
-      (reportObj.requests || []).forEach(r => { houseMap[r.house] = r; });
-
-      (reportObj.parcels || []).forEach(p => {
-        const req = houseMap[p.house];
-        let loc = (req && req.locationName) ? req.locationName : nitiKey;
-        if (!groups[loc]) groups[loc] = [];
-        groups[loc].push({ house: p.house, carrier: p.carrier, recipient: p.recipient, phone: req ? req.phone : "-" });
-      });
-
-      Object.keys(groups).forEach(k => {
-        groups[k].sort((a, b) => String(a.house).localeCompare(String(b.house), 'th', { numeric: true }));
-      });
-
-      let html = `<style>
-        body { font-family:'Sarabun',sans-serif; color:#000; padding:16px; }
-        .page { page-break-after:always; margin-bottom:20px; background:#fff; color:#000; padding:20px; border-radius:8px; }
-        table { width:100%; border-collapse:collapse; margin-top:10px; font-size:15px; }
-        th, td { border:1px solid #000; padding:10px; color:#000; }
-        th { background:#f1f5f9; }
-        @media print { thead { display:table-header-group; } tr { page-break-inside:avoid; } }
-      </style>`;
-
-      Object.keys(groups).forEach(locName => {
-        html += `<div class="page">
-          <div style="text-align:center; border-bottom:2px solid #000; padding-bottom:8px;">
-            <h3>🏢 โครงการ: ${appState.projectName}</h3>
-            <h2>ใบรายงานจ่ายพัสดุ (จุดรับ: ${locName})</h2>
-            <div>รอบที่สร้าง: ${reportObj.timestamp}</div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>ลำดับ</th>
-                <th>บ้านเลขที่</th>
-                <th>เลขอ้างอิง (5 ตัวท้าย)</th>
-                <th>ประเภทพัสดุ</th>
-                <th>ลายเซ็นรับ</th>
-              </tr>
-            </thead>
-            <tbody>`;
-        groups[locName].forEach((item, idx) => {
-          const shortRef = String(item.carrier).length > 5 ? String(item.carrier).slice(-5) : item.carrier;
-          html += `<tr>
-            <td align="center">${idx + 1}</td>
-            <td><strong>${item.house}</strong></td>
-            <td><code>${shortRef}</code></td>
-            <td>${item.recipient || "-"}</td>
-            <td style="height:44px;"></td>
-          </tr>`;
-        });
-        html += `</tbody></table></div>`;
-      });
-      return html;
-    }
-
-    function executeIsolatedPrint(html) {
-      const pIframe = document.getElementById("printIsolatedIframe");
-      if (pIframe) {
-        const pDoc = pIframe.contentDocument || pIframe.contentWindow.document;
-        pDoc.open();
-        pDoc.write(html);
-        pDoc.close();
-        setTimeout(() => {
-          pIframe.contentWindow.focus();
-          pIframe.contentWindow.print();
-        }, 300);
-      }
-    }
-
-    function restoreReportToActive(id) {
-      const rep = appState.reportHistory.find(r => r.id === id);
-      if (!rep) return;
-      appState.requests = [...(rep.requests || []), ...appState.requests];
-      appState.parcels = [...(rep.parcels || []), ...appState.parcels];
-      appState.reportHistory = appState.reportHistory.filter(r => r.id !== id);
-      reconcileRequestsAndParcels();
-      saveStateToStorage();
-      renderAll();
-      showNoticeModal("กู้คืนสำเร็จ", "ดึงรายการของรอบนี้กลับเข้าสู่คิวหลักเรียบร้อยแล้ว");
-    }
-
     function handleSaveGasUrl(showNotify = false) {
       const inp = document.getElementById("gasUrlInput");
       if (inp) {
@@ -2063,104 +1401,18 @@
       }
     }
 
-    function handleSaveProjectName(e) {
-      e.preventDefault();
-      const inp = document.getElementById("projectNameInput");
-      if (inp && inp.value.trim()) {
-        appState.projectName = inp.value.trim();
-        saveStateToStorage();
-        renderAll();
-        showNoticeModal("บันทึกสำเร็จ", "อัปเดตชื่อโครงการเรียบร้อยแล้ว");
-      }
+    function reconcileRequestsAndParcels() {
+      const parcelHouses = new Set(appState.parcels.map(p => p.house));
+      appState.requests.forEach(r => {
+        r.matched = parcelHouses.has(r.house);
+      });
     }
 
-    // -------------------------------------------------------------------------
-    // Render Dropdowns, Lists, and Tables
-    // -------------------------------------------------------------------------
     function renderAll() {
       reconcileRequestsAndParcels();
-
       const proj = appState.projectName || "โครงการอาคารชุดนิติบุคคล";
       document.getElementById("headerProjectNameBadge").textContent = "🏢 " + proj;
-      const mobileProj = document.getElementById("mobileFormProjectTitle");
-      if (mobileProj) mobileProj.textContent = "🏢 " + proj;
-      const projInput = document.getElementById("projectNameInput");
-      if (projInput && document.activeElement !== projInput) projInput.value = proj;
-      const gasInput = document.getElementById("gasUrlInput");
-      if (gasInput && document.activeElement !== gasInput) gasInput.value = appState.gasUrl || "";
-
-      const datalist = document.getElementById("houseDatalist");
-      if (datalist) {
-        datalist.innerHTML = appState.houses.map(h => `<option value="${h}"></option>`).join("");
-      }
-
-      const locSelect = document.getElementById("reqLocationSelect");
-      if (locSelect) {
-        const currentVal = locSelect.value;
-        locSelect.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` +
-          appState.locations.map(l => `<option value="${l.name}">${l.name}${l.requirePhone ? " (ต้องระบุเบอร์โทร)" : ""}</option>`).join("");
-        if (currentVal) locSelect.value = currentVal;
-      }
-
       renderAnnouncement(appState.notice);
-
-      const matchedTbody = document.getElementById("matchedHousesTbody");
-      if (matchedTbody) {
-        const houseMap = {};
-        appState.requests.forEach(r => {
-          if (r.matched) {
-            const pList = appState.parcels.filter(p => p.house === r.house);
-            if (pList.length > 0) {
-              houseMap[r.house] = {
-                house: r.house,
-                loc: r.locationName,
-                phone: r.phone,
-                count: pList.length,
-                refs: pList.map(p => p.carrier.slice(-5)).join(", ")
-              };
-            }
-          }
-        });
-        const list = Object.values(houseMap);
-        matchedTbody.innerHTML = list.length === 0
-          ? `<tr><td colspan="7" class="empty-state">ไม่มีรายการที่พร้อมจ่าย</td></tr>`
-          : list.map(item => `<tr>
-              <td align="center"><input type="checkbox" class="matched-house-select-chk" data-house="${item.house}"></td>
-              <td><strong>${item.house}</strong></td>
-              <td>${item.loc}</td>
-              <td>${item.phone}</td>
-              <td align="center" style="font-weight:700; color:var(--brand);">${item.count} ชิ้น</td>
-              <td><code>${item.refs}</code></td>
-              <td><span class="badge badge-matched">พร้อมออกรายงาน</span></td>
-            </tr>`).join("");
-      }
-
-      const histTbody = document.getElementById("reportHistoryTbody");
-      if (histTbody) {
-        histTbody.innerHTML = appState.reportHistory.length === 0
-          ? `<tr><td colspan="4" class="empty-state">ยังไม่มีประวัติการออกรายงาน</td></tr>`
-          : appState.reportHistory.map(r => `<tr>
-              <td><strong>📅 ${r.timestamp}</strong></td>
-              <td>${r.houses.length} ห้องชุด</td>
-              <td style="font-size:12px;">${r.houses.join(", ")}</td>
-              <td align="right">
-                <button type="button" class="btn btn-primary btn-sm" onclick="printReportFromHistory('${r.id}')">📄 พิมพ์ PDF ซ้ำ</button>
-                <button type="button" class="btn btn-warning btn-sm" onclick="restoreReportToActive('${r.id}')">🔁 กู้คืนข้อมูล</button>
-              </td>
-            </tr>`).join("");
-      }
-    }
-
-    function switchPortalMode(mode) {
-      document.getElementById("viewUserPortal").classList.toggle("hidden", mode !== "user");
-      document.getElementById("viewAdminPortal").classList.toggle("hidden", mode !== "admin");
-      document.getElementById("btnModeUser").classList.toggle("active", mode === "user");
-      document.getElementById("btnModeAdmin").classList.toggle("active", mode === "admin");
-
-      if (mode === "admin") {
-        document.getElementById("adminLoginGate").classList.toggle("hidden", isAdminAuthenticated);
-        document.getElementById("adminWorkspace").classList.toggle("hidden", !isAdminAuthenticated);
-      }
     }
 
     function switchAdminTab(tabId) {
@@ -2179,34 +1431,15 @@
       document.getElementById("customConfirmModal").classList.add("open");
     }
 
-    function showConfirmModal({ title, message, confirmText, onConfirm }) {
-      document.getElementById("modalTitleText").textContent = title;
-      document.getElementById("modalBodyText").textContent = message;
-      document.getElementById("modalCancelBtn").style.display = "inline-flex";
-      const conf = document.getElementById("modalConfirmBtn");
-      conf.textContent = confirmText || "ยืนยัน";
-      conf.onclick = () => { closeConfirmModal(); onConfirm(); };
-      document.getElementById("customConfirmModal").classList.add("open");
-    }
-
     function closeConfirmModal() {
       document.getElementById("customConfirmModal").classList.remove("open");
-    }
-
-    function updateLiveClock() {
-      const el = document.getElementById("clockDisplay");
-      if (el) el.textContent = getCurrentTimeString();
     }
 
     window.addEventListener("DOMContentLoaded", () => {
       isAdminAuthenticated = false;
       currentLoggedInAdmin = null;
-
       loadStateFromStorage();
-      updateLiveClock();
-      setInterval(updateLiveClock, 1000);
 
-      // ดึงข้อมูลจาก Cloud อัตโนมัติทุกๆ 20 วินาที
       setInterval(() => {
         if (appState.gasUrl && !appState.gasUrl.startsWith("ใส่_URL")) {
           fetchFromGoogleSheetsCloud(false);
@@ -2214,9 +1447,7 @@
       }, (appState.cloudPollIntervalSec || 20) * 1000);
 
       const urlParams = new URLSearchParams(window.location.search);
-      const requestedMode = urlParams.get("mode");
-      switchPortalMode(requestedMode === "admin" ? "admin" : "user");
-
+      switchPortalMode(urlParams.get("mode") === "admin" ? "admin" : "user");
       renderAll();
 
       if (appState.gasUrl) {
