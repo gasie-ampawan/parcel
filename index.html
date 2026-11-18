@@ -702,6 +702,53 @@
             </div>
           </div>
 
+          <!-- Admins Management (เพิ่ม/ลบ สิทธิ์แอดมิน) -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">🛡️ การจัดการบัญชีและสิทธิ์ผู้ใช้หลังบ้าน (Admins)</h2>
+                <p class="card-desc">กำหนดบัญชีผู้ใช้งานหลังบ้าน ระดับสิทธิ์ (Role) และเพิ่ม/ลบสิทธิ์แอดมิน</p>
+              </div>
+            </div>
+            <form onsubmit="handleSaveRoleAdmin(event)" style="background: var(--surface-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
+              <input type="hidden" id="editRoleAdminId" value="">
+              <div class="form-grid">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" for="roleAdminUsername">Username <span class="req-star">*</span></label>
+                  <input type="text" id="roleAdminUsername" class="input" placeholder="ระบุชื่อผู้ใช้ เช่น staff01" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" for="roleAdminPassword">Password / รหัสผ่าน <span class="req-star">*</span></label>
+                  <input type="text" id="roleAdminPassword" class="input" placeholder="ระบุรหัสผ่าน" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" for="roleAdminDisplayName">ชื่อ-นามสกุล / ตำแหน่ง</label>
+                  <input type="text" id="roleAdminDisplayName" class="input" placeholder="เช่น ธุรการ หรือ เจ้าหน้าที่พัสดุ">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" for="roleAdminRoleSelect">ระดับสิทธิ์ (Role)</label>
+                  <select id="roleAdminRoleSelect" class="select">
+                    <option value="Super Admin" selected>ผู้ดูแลระบบสูงสุด (Super Admin)</option>
+                    <option value="Juristic Officer">เจ้าหน้าที่นิติบุคคล (Juristic Officer)</option>
+                    <option value="Parcel Staff">พนักงานห้องพัสดุ (Parcel Staff)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap: 8px; margin-top: 14px;">
+                <button type="button" id="cancelRoleAdminEditBtn" class="btn btn-secondary btn-sm hidden" onclick="resetRoleAdminForm()">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary btn-sm" id="saveRoleAdminBtn">➕ เพิ่ม / บันทึกบัญชีแอดมิน</button>
+              </div>
+            </form>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Username</th><th>ชื่อ-ตำแหน่ง</th><th>ระดับสิทธิ์</th><th>สถานะ</th><th style="text-align:right;">จัดการ</th></tr>
+                </thead>
+                <tbody id="rolePermissionsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
           <!-- Text Announcements -->
           <div class="card">
             <div class="card-header">
@@ -864,7 +911,7 @@
             </div>
           </div>
 
-                    <!-- SUB-TAB 2: CLONE APP -->
+          <!-- SUB-TAB 2: CLONE APP -->
           <div id="subTabCloneApp" class="settings-subpane hidden">
             <div class="card">
               <div class="card-header">
@@ -958,10 +1005,8 @@
               </div>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Username</th><th>ชื่อ-ตำแหน่ง</th><th>ระดับสิทธิ์</th><th>โมดูลที่เข้าถึงได้</th><th>สถานะ</th><th style="text-align:right;">จัดการ</th></tr></thead>
-                  <tbody id="settingsRolePermissionsTbody">
-                    <tr><td><strong>admin</strong></td><td>ธุรการ</td><td><span class="badge badge-opt">Juristic Officer</span></td><td>parcels, reports, locations</td><td><span class="badge badge-matched">Active</span></td><td style="text-align:right;"><button class="btn btn-secondary btn-sm">แก้ไขสิทธิ์</button></td></tr>
-                  </tbody>
+                  <thead><tr><th>Username</th><th>ชื่อ-ตำแหน่ง</th><th>ระดับสิทธิ์</th><th>สถานะ</th><th style="text-align:right;">จัดการ</th></tr></thead>
+                  <tbody id="settingsRolePermissionsTbody"></tbody>
                 </table>
               </div>
             </div>
@@ -1067,7 +1112,7 @@
         { id: "ann-default-1", title: "ยินดีต้อนรับ", imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80" }
       ],
       textAnnouncements: [{ id: "txt-1", message: "📢 ประกาศจากนิติบุคคล: กรุณารับพัสดุภายใน 3 วันทำการ" }],
-      admins: [{ id: "adm-1", username: "admin", password: "1234", role: "Super Admin", active: true }],
+      admins: [{ id: "adm-1", username: "admin", password: "1234", displayName: "ธุรการ", role: "Super Admin", active: true }],
       gasUrl: "",
       projectName: "โครงการอาคารชุดนิติบุคคล",
       slideshowSpeedMs: 5000,
@@ -1911,6 +1956,100 @@
       renderAll();
     }
 
+    // Admin & Role Management Functions
+    function handleSaveRoleAdmin(e) {
+      if (e) e.preventDefault();
+      const editId = document.getElementById("editRoleAdminId").value;
+      const username = sanitizeInput(document.getElementById("roleAdminUsername").value);
+      const password = sanitizeInput(document.getElementById("roleAdminPassword").value);
+      const displayName = sanitizeInput(document.getElementById("roleAdminDisplayName").value) || username;
+      const role = sanitizeInput(document.getElementById("roleAdminRoleSelect").value);
+
+      if (!username || !password) {
+        showNoticeModal("ข้อมูลไม่ครบถ้วน", "กรุณาระบุ Username และ Password");
+        return;
+      }
+
+      if (editId) {
+        const adm = appState.admins.find(a => a.id === editId);
+        if (adm) {
+          adm.username = username;
+          adm.password = password;
+          adm.displayName = displayName;
+          adm.role = role;
+        }
+      } else {
+        if (appState.admins.some(a => a.username === username)) {
+          showNoticeModal("ชื่อผู้ใช้ซ้ำ", "มี Username นี้ในระบบแล้ว");
+          return;
+        }
+        appState.admins.push({
+          id: "adm-" + Date.now(),
+          username,
+          password,
+          displayName,
+          role,
+          active: true
+        });
+      }
+      resetRoleAdminForm();
+      saveStateToStorage();
+      renderAll();
+      showNoticeModal("สำเร็จ", "บันทึกข้อมูลแอดมินเรียบร้อยแล้ว");
+    }
+
+    function editRoleAdmin(id) {
+      const adm = appState.admins.find(a => a.id === id);
+      if (!adm) return;
+      document.getElementById("editRoleAdminId").value = adm.id;
+      document.getElementById("roleAdminUsername").value = adm.username;
+      document.getElementById("roleAdminPassword").value = adm.password;
+      document.getElementById("roleAdminDisplayName").value = adm.displayName || "";
+      document.getElementById("roleAdminRoleSelect").value = adm.role || "Super Admin";
+      document.getElementById("saveRoleAdminBtn").textContent = "💾 บันทึกการแก้ไข";
+      document.getElementById("cancelRoleAdminEditBtn").classList.remove("hidden");
+    }
+
+    function resetRoleAdminForm() {
+      document.getElementById("editRoleAdminId").value = "";
+      document.getElementById("roleAdminUsername").value = "";
+      document.getElementById("roleAdminPassword").value = "";
+      document.getElementById("roleAdminDisplayName").value = "";
+      document.getElementById("roleAdminRoleSelect").value = "Super Admin";
+      document.getElementById("saveRoleAdminBtn").textContent = "➕ เพิ่ม / บันทึกบัญชีแอดมิน";
+      document.getElementById("cancelRoleAdminEditBtn").classList.add("hidden");
+    }
+
+    function toggleRoleAdminActive(id) {
+      const adm = appState.admins.find(a => a.id === id);
+      if (!adm) return;
+      const activeCount = appState.admins.filter(a => a.active !== false).length;
+      if (adm.active !== false && activeCount <= 1) {
+        showNoticeModal("ไม่สามารถระงับได้", "ต้องมีแอดมินที่เปิดใช้งานอยู่อย่างน้อย 1 บัญชี");
+        return;
+      }
+      adm.active = adm.active === false ? true : false;
+      saveStateToStorage();
+      renderAll();
+    }
+
+    function deleteAdminAccount(id) {
+      if (appState.admins.length <= 1) {
+        showNoticeModal("ไม่สามารถลบได้", "ระบบต้องมีบัญชีแอดมินอย่างน้อย 1 บัญชี");
+        return;
+      }
+      showConfirmModal({
+        title: "ยืนยันการลบบัญชี",
+        message: "ต้องการลบบัญชีแอดมินนี้?",
+        danger: true,
+        onConfirm: () => {
+          appState.admins = appState.admins.filter(a => a.id !== id);
+          saveStateToStorage();
+          renderAll();
+        }
+      });
+    }
+
     function handleSaveProjectName(e) {
       e.preventDefault();
       const name = sanitizeInput(document.getElementById("projectNameInput").value);
@@ -1966,7 +2105,7 @@
     function handleDeleteAllReset() {
       showConfirmModal({
         title: "คืนค่าเริ่มต้น",
-        message: "ต้องการล้างข้อมูลทั้งหมดกลับสู่ 0 รายการ?",
+        message: "ต้องการลบข้อมูลทั้งหมดกลับสู่ 0 รายการ?",
         danger: true,
         onConfirm: () => {
           appState.requests = [];
@@ -1974,7 +2113,7 @@
           appState.reportHistory = [];
           saveStateToStorage();
           renderAll();
-          showNoticeModal("สำเร็จ", "ล้างข้อมูลทั้งหมดแล้ว");
+          showNoticeModal("สำเร็จ", "ลบข้อมูลทั้งหมดแล้ว");
         }
       });
     }
@@ -2139,6 +2278,12 @@
       const p = sanitizeInput(document.getElementById("loginPassword").value);
       const matched = appState.admins.find(a => a.username === u && a.password === p);
       if (matched) {
+        if (matched.active === false) {
+          const err = document.getElementById("loginErrorMsg");
+          err.textContent = "บัญชีนี้ถูกระงับการใช้งาน";
+          err.classList.remove("hidden");
+          return;
+        }
         isAdminAuthenticated = true;
         document.getElementById("adminLoginGate").classList.add("hidden");
         document.getElementById("adminWorkspace").classList.remove("hidden");
@@ -2154,6 +2299,9 @@
       isAdminAuthenticated = false;
       document.getElementById("adminLoginGate").classList.remove("hidden");
       document.getElementById("adminWorkspace").classList.add("hidden");
+      document.getElementById("loginUsername").value = "";
+      document.getElementById("loginPassword").value = "";
+      document.getElementById("loginErrorMsg").classList.add("hidden");
     }
 
     function renderAll() {
@@ -2231,6 +2379,29 @@
           </tr>
         `).join("") || `<tr><td colspan="5" class="empty-state">ยังไม่มีภาพประกาศ</td></tr>`;
       }
+
+      // Admins Table
+      const roleTbody = document.getElementById("rolePermissionsTbody");
+      const settingsRoleTbody = document.getElementById("settingsRolePermissionsTbody");
+      const adminRowsHtml = (appState.admins || []).map(a => {
+        const act = a.active !== false;
+        return `
+          <tr>
+            <td><strong>${a.username}</strong></td>
+            <td>${a.displayName || a.username}</td>
+            <td><span class="badge badge-opt">${a.role || "Super Admin"}</span></td>
+            <td><span class="badge ${act ? "badge-matched" : "badge-req"}">${act ? "Active" : "Suspended"}</span></td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="editRoleAdmin('${a.id}')">แก้ไข</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleRoleAdminActive('${a.id}')">${act ? "ระงับ" : "เปิดใช้"}</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="deleteAdminAccount('${a.id}')">ลบ</button>
+            </td>
+          </tr>
+        `;
+      }).join("") || `<tr><td colspan="5" class="empty-state">ไม่มีบัญชีแอดมิน</td></tr>`;
+
+      if (roleTbody) roleTbody.innerHTML = adminRowsHtml;
+      if (settingsRoleTbody) settingsRoleTbody.innerHTML = adminRowsHtml;
 
       renderSlideshow();
       renderLatestSubmissionCard();
@@ -2371,14 +2542,13 @@
       document.getElementById("houseCountLabel").textContent = appState.houses.length;
       const chipsBox = document.getElementById("houseChipContainer");
       if (chipsBox) {
-        chipsBox.innerHTML = appState.houses.houses ? "" : appState.houses.map(h => `<span class="house-chip">${h}<button type="button" onclick="removeSingleHouse('${h}')">×</button></span>`).join("");
+        chipsBox.innerHTML = appState.houses.map(h => `<span class="house-chip">${h}<button type="button" onclick="removeSingleHouse('${h}')">×</button></span>`).join("");
       }
 
       renderA4ReportPreview();
       renderReportHistoryTable();
     }
 
-    
     let isCloneGasUrlVerified = false;
     function handleSaveAndVerifyCloneGasUrl() {
       const url = sanitizeInput(document.getElementById("cloneGasUrlInput").value);
@@ -2388,7 +2558,7 @@
       }
       appState.gasUrl = url;
       isCloneGasUrlVerified = true;
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
       showNoticeModal("ยืนยันสำเร็จ", "บันทึกข้อมูลเชื่อมต่อสำเร็จ");
     }
@@ -2443,7 +2613,9 @@
 
     window.addEventListener("DOMContentLoaded", () => {
       loadStateFromStorage();
+      isAdminAuthenticated = false;
       switchPortalMode('user');
+      renderAdminAuthView();
       renderAll();
       runSlideshowInterval();
     });
