@@ -1403,20 +1403,10 @@ function doPost(e) {
         });
         const chats = Object.values(chatMap);
         if (chats.length === 0) {
-          listEl.innerHTML = `<div style="font-size:13px; color:var(--warning);">⚠️ ยังไม่พบประวัติข้อความของบอทตัวนี้
-• หากส่งเข้ากลุ่ม: ให้ดึงบอทเข้ากลุ่ม แล้วพิมพ์ข้อความทักทายในกลุ่ม 1 ครั้ง จากนั้นกด "🔍 ค้นหา Chat ID" อีกครั้ง
-• หากส่งเข้าแชทส่วนตัว: ให้ทักแชทบอทแล้วกด Start จากนั้นกดค้นหาอีกครั้ง</div>`;
+          listEl.innerHTML = `<div style="font-size:13px; color:var(--warning);">⚠️ ยังไม่พบประวัติข้อความของบอทตัวนี้\n• หากส่งเข้ากลุ่ม: ให้ดึงบอทเข้ากลุ่ม แล้วพิมพ์ข้อความทักทายในกลุ่ม 1 ครั้ง จากนั้นกด "🔍 ค้นหา Chat ID" อีกครั้ง\n• หากส่งเข้าแชทส่วนตัว: ให้ทักแชทบอทแล้วกด Start จากนั้นกดค้นหาอีกครั้ง</div>`;
           return;
         }
-        listEl.innerHTML = chats.map(c => `
-          <div class="tg-chat-item">
-            <div>
-              <strong style="color:var(--ink);">${escapeHtml(c.title)}</strong> <span class="badge badge-opt">${escapeHtml(c.type)}</span>
-              <div style="font-size:12.5px; color:var(--brand); font-family:monospace;">Chat ID: ${c.id}</div>
-            </div>
-            <button type="button" class="btn btn-primary btn-sm" onclick="selectDetectedChatId('${c.id}')">✅ เลือกใช้ ID นี้</button>
-          </div>
-        `).join("");
+        listEl.innerHTML = chats.map(c => `\n          <div class="tg-chat-item">\n            <div>\n              <strong style="color:var(--ink);">${escapeHtml(c.title)}</strong> <span class="badge badge-opt">${escapeHtml(c.type)}</span>\n              <div style="font-size:12.5px; color:var(--brand); font-family:monospace;">Chat ID: ${c.id}</div>\n            </div>\n            <button type="button" class="btn btn-primary btn-sm" onclick="selectDetectedChatId('${c.id}')">✅ เลือกใช้ ID นี้</button>\n          </div>\n        `).join("");
       } catch (e) {
         listEl.innerHTML = `<div style="color:var(--danger); font-size:13px;">❌ เกิดข้อผิดพลาดในการเชื่อมต่อ: ${escapeHtml(e.message)}</div>`;
       }
@@ -1444,9 +1434,7 @@ function doPost(e) {
       btn.disabled = true;
       btn.textContent = "⏳ กำลังส่งทดสอบ...";
 
-      const msg = `🔔 <b>ทดสอบการเชื่อมต่อสำเร็จ!</b>
-🏢 โครงการ: ${escapeHtml(appState.projectName)}
-⏰ เวลา: ${getTodayDateString()} ${getCurrentTimeString()}`;
+      const msg = `🔔 <b>ทดสอบการเชื่อมต่อสำเร็จ!</b>\n🏢 โครงการ: ${escapeHtml(appState.projectName)}\n⏰ เวลา: ${getTodayDateString()} ${getCurrentTimeString()}`;
       const result = await sendTelegramNotification(msg);
 
       btn.disabled = false;
@@ -1523,13 +1511,7 @@ function doPost(e) {
       if (appState.telegram && appState.telegram.enabled && appState.telegram.botToken && appState.telegram.chatId) {
         const matchedCount = appState.parcels.filter(p => p.house === newReq.house).length;
         const statusLine = matchedCount > 0 ? `✅ พบพัสดุในระบบแล้ว (${matchedCount} ชิ้น)` : `⏳ ยังไม่พบพัสดุรับเข้าในระบบ`;
-        const tgMsg = `📦 <b>คำขอแจ้งรับพัสดุใหม่</b>
-🏢 ${escapeHtml(appState.projectName)}
-🏠 บ้านเลขที่: <b>${escapeHtml(newReq.house)}</b>
-📍 จุดรับ: ${escapeHtml(newReq.locationName)}
-📞 เบอร์โทร: ${escapeHtml(newReq.phone)}
-⏰ เวลา: ${newReq.date} ${newReq.time}
-📌 สถานะ: ${statusLine}`;
+        const tgMsg = `📦 <b>คำขอแจ้งรับพัสดุใหม่</b>\n🏢 ${escapeHtml(appState.projectName)}\n🏠 บ้านเลขที่: <b>${escapeHtml(newReq.house)}</b>\n📍 จุดรับ: ${escapeHtml(newReq.locationName)}\n📞 เบอร์โทร: ${escapeHtml(newReq.phone)}\n⏰ เวลา: ${newReq.date} ${newReq.time}\n📌 สถานะ: ${statusLine}`;
         sendTelegramNotification(tgMsg);
       }
     }
@@ -1543,13 +1525,7 @@ function doPost(e) {
         return;
       }
       box.classList.remove("hidden");
-      content.innerHTML = `
-        <div><strong>บ้านเลขที่:</strong> ${escapeHtml(latest.house)}</div>
-        <div><strong>จุดรับพัสดุ:</strong> ${escapeHtml(latest.locationName)}</div>
-        <div><strong>เบอร์โทรศัพท์:</strong> ${escapeHtml(latest.phone)}</div>
-        <div><strong>เวลาที่ส่งคำขอ:</strong> ${latest.date} ${latest.time}</div>
-        <div><strong>สถานะ:</strong> ${latest.matched ? "✅ พบพัสดุแล้ว" : "⏳ รอตรวจสอบ"}</div>
-      `;
+      content.innerHTML = `\n        <div><strong>บ้านเลขที่:</strong> ${escapeHtml(latest.house)}</div>\n        <div><strong>จุดรับพัสดุ:</strong> ${escapeHtml(latest.locationName)}</div>\n        <div><strong>เบอร์โทรศัพท์:</strong> ${escapeHtml(latest.phone)}</div>\n        <div><strong>เวลาที่ส่งคำขอ:</strong> ${latest.date} ${latest.time}</div>\n        <div><strong>สถานะ:</strong> ${latest.matched ? "✅ พบพัสดุแล้ว" : "⏳ รอตรวจสอบ"}</div>\n      `;
     }
 
     // ==================== SLIDESHOW & TICKER ====================
@@ -1993,19 +1969,7 @@ function doPost(e) {
       let html = `<style>body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;margin:0;padding:16px;}.a4-table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:15px;}.a4-table th,.a4-table td{border:1px solid #000;padding:10px 12px;vertical-align:middle;}.a4-table th{background:#f1f5f9;font-weight:700;}</style>`;
       keys.forEach((loc, idx) => {
         const items = groups[loc];
-        html += `
-          <div style="page-break-after:always; margin-bottom:24px;">
-            <div style="text-align:center; margin-bottom:15px; border-bottom:2px solid #000; padding-bottom:8px;">
-              <div style="font-size:14px; font-weight:700;">🏢 ${escapeHtml(appState.projectName)}</div>
-              <h2 style="margin:4px 0; font-size:18px;">ใบรายงานจ่ายพัสดุประจำวัน</h2>
-              <div style="font-size:12px;">จุดส่งมอบ: <strong>${escapeHtml(loc)}</strong> | วันที่: ${reportObj ? reportObj.timestamp : getTodayDateString()} | แผ่นที่ ${idx+1}/${keys.length}</div>
-            </div>
-            <table class="a4-table">
-              <thead>
-                <tr><th style="width:8%; text-align:center;">ลำดับ</th><th style="width:22%;">บ้านเลขที่</th><th style="width:32%;">เลขอ้างอิง</th><th style="width:22%;">ประเภทพัสดุ</th><th style="width:16%; text-align:center;">ลายเซ็น</th></tr>
-              </thead>
-              <tbody>
-        `;
+        html += `\n          <div style="page-break-after:always; margin-bottom:24px;">\n            <div style="text-align:center; margin-bottom:15px; border-bottom:2px solid #000; padding-bottom:8px;">\n              <div style="font-size:14px; font-weight:700;">🏢 ${escapeHtml(appState.projectName)}</div>\n              <h2 style="margin:4px 0; font-size:18px;">ใบรายงานจ่ายพัสดุประจำวัน</h2>\n              <div style="font-size:12px;">จุดส่งมอบ: <strong>${escapeHtml(loc)}</strong> | วันที่: ${reportObj ? reportObj.timestamp : getTodayDateString()} | แผ่นที่ ${idx+1}/${keys.length}</div>\n            </div>\n            <table class="a4-table">\n              <thead>\n                <tr><th style="width:8%; text-align:center;">ลำดับ</th><th style="width:22%;">บ้านเลขที่</th><th style="width:32%;">เลขอ้างอิง</th><th style="width:22%;">ประเภทพัสดุ</th><th style="width:16%; text-align:center;">ลายเซ็น</th></tr>\n              </thead>\n              <tbody>\n        `;
         items.forEach((it, i) => {
           const shortRef = it.carrier.length > 5 ? it.carrier.slice(-5) : it.carrier;
           html += `<tr><td style="text-align:center;font-weight:700;">${i+1}</td><td><strong>${escapeHtml(it.house)}</strong></td><td><code style="font-weight:700;">${escapeHtml(shortRef)}</code></td><td>${escapeHtml(it.recipient)}</td><td style="height:40px;"></td></tr>`;
@@ -2032,17 +1996,7 @@ function doPost(e) {
         tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีประวัติการพิมพ์</td></tr>`;
         return;
       }
-      tbody.innerHTML = appState.reportHistory.map(r => `
-        <tr>
-          <td><strong>${r.timestamp}</strong></td>
-          <td style="text-align:center;font-weight:700;color:var(--brand);">${r.houses.length} ห้อง</td>
-          <td>${escapeHtml(r.houses.join(", "))}</td>
-          <td style="text-align:right;">
-            <button type="button" class="btn btn-primary btn-sm" onclick="printReportFromHistory('${r.id}')">📄 พิมพ์ PDF</button>
-            <button type="button" class="btn btn-danger btn-sm" onclick="deleteReportFromHistory('${r.id}')">ลบ</button>
-          </td>
-        </tr>
-      `).join("");
+      tbody.innerHTML = appState.reportHistory.map(r => `\n        <tr>\n          <td><strong>${r.timestamp}</strong></td>\n          <td style="text-align:center;font-weight:700;color:var(--brand);">${r.houses.length} ห้อง</td>\n          <td>${escapeHtml(r.houses.join(", "))}</td>\n          <td style="text-align:right;">\n            <button type="button" class="btn btn-primary btn-sm" onclick="printReportFromHistory('${r.id}')">📄 พิมพ์ PDF</button>\n            <button type="button" class="btn btn-danger btn-sm" onclick="deleteReportFromHistory('${r.id}')">ลบ</button>\n          </td>\n        </tr>\n      `).join("");
     }
 
     function printReportFromHistory(id) {
@@ -2590,14 +2544,7 @@ function doPost(e) {
         tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีประวัติการเชื่อมต่อ</td></tr>`;
         return;
       }
-      tbody.innerHTML = logs.map(l => `
-        <tr>
-          <td>${l.timestamp}</td>
-          <td><strong>${escapeHtml(l.channel)}</strong></td>
-          <td>${escapeHtml(l.detail)}</td>
-          <td><span class="badge ${l.success ? 'badge-matched' : 'badge-req'}">${l.success ? 'สำเร็จ' : 'ผิดพลาด'}</span></td>
-        </tr>
-      `).join("");
+      tbody.innerHTML = logs.map(l => `\n        <tr>\n          <td>${l.timestamp}</td>\n          <td><strong>${escapeHtml(l.channel)}</strong></td>\n          <td>${escapeHtml(l.detail)}</td>\n          <td><span class="badge ${l.success ? 'badge-matched' : 'badge-req'}">${l.success ? 'สำเร็จ' : 'ผิดพลาด'}</span></td>\n        </tr>\n      `).join("");
     }
 
     function handlePrintAllRequestsHistoryPdf() {
@@ -2767,36 +2714,13 @@ function doPost(e) {
       // Text Ann Table
       const txtTbody = document.getElementById("textAnnouncementsTbody");
       if (txtTbody) {
-        txtTbody.innerHTML = (appState.textAnnouncements || []).map((t, idx) => `
-          <tr>
-            <td style="text-align:center;font-weight:700;">${idx+1}</td>
-            <td>📢 ${escapeHtml(t.message)}</td>
-            <td style="text-align:right;">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="editTextAnn('${t.id}')">✏️ แก้ไข</button>
-              <button type="button" class="btn btn-danger btn-sm" onclick="deleteTextAnn('${t.id}')">ลบ</button>
-            </td>
-          </tr>
-        `).join("") || `<tr><td colspan="3" class="empty-state">ยังไม่มีข้อความประกาศ</td></tr>`;
+        txtTbody.innerHTML = (appState.textAnnouncements || []).map((t, idx) => `\n          <tr>\n            <td style="text-align:center;font-weight:700;">${idx+1}</td>\n            <td>📢 ${escapeHtml(t.message)}</td>\n            <td style="text-align:right;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editTextAnn('${t.id}')">✏️ แก้ไข</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteTextAnn('${t.id}')">ลบ</button>\n            </td>\n          </tr>\n        `).join("") || `<tr><td colspan="3" class="empty-state">ยังไม่มีข้อความประกาศ</td></tr>`;
       }
 
       // Banner Ann Table
       const annTbody = document.getElementById("announcementsTbody");
       if (annTbody) {
-        annTbody.innerHTML = (appState.announcements || []).map((a, idx) => `
-          <tr>
-            <td><strong>${idx+1}</strong></td>
-            <td><img src="${escapeHtml(a.imageUrl)}" alt="" style="width:100px; height:50px; object-fit:contain; background:#000; border-radius:6px;"></td>
-            <td><strong>${escapeHtml(a.title)}</strong></td>
-            <td>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', -1)" ${idx===0?"disabled":""}>⬆️</button>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', 1)" ${idx===appState.announcements.length-1?"disabled":""}>⬇️</button>
-            </td>
-            <td style="text-align:right;">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="editAnnouncement('${a.id}')">✏️</button>
-              <button type="button" class="btn btn-danger btn-sm" onclick="deleteAnnouncement('${a.id}')">ลบ</button>
-            </td>
-          </tr>
-        `).join("") || `<tr><td colspan="5" class="empty-state">ยังไม่มีภาพประกาศ</td></tr>`;
+        annTbody.innerHTML = (appState.announcements || []).map((a, idx) => `\n          <tr>\n            <td><strong>${idx+1}</strong></td>\n            <td><img src="${escapeHtml(a.imageUrl)}" alt="" style="width:100px; height:50px; object-fit:contain; background:#000; border-radius:6px;"></td>\n            <td><strong>${escapeHtml(a.title)}</strong></td>\n            <td>\n              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', -1)" ${idx===0?"disabled":""}>⬆️</button>\n              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', 1)" ${idx===appState.announcements.length-1?"disabled":""}>⬇️</button>\n            </td>\n            <td style="text-align:right;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editAnnouncement('${a.id}')">✏️</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteAnnouncement('${a.id}')">ลบ</button>\n            </td>\n          </tr>\n        `).join("") || `<tr><td colspan="5" class="empty-state">ยังไม่มีภาพประกาศ</td></tr>`;
       }
 
       // Admins Table
@@ -2804,19 +2728,7 @@ function doPost(e) {
       const settingsRoleTbody = document.getElementById("settingsRolePermissionsTbody");
       const adminRowsHtml = (appState.admins || []).map(a => {
         const act = a.active !== false;
-        return `
-          <tr>
-            <td><strong>${escapeHtml(a.username)}</strong></td>
-            <td>${escapeHtml(a.displayName || a.username)}</td>
-            <td><span class="badge badge-opt">${escapeHtml(a.role || "Super Admin")}</span></td>
-            <td><span class="badge ${act ? "badge-matched" : "badge-req"}">${act ? "Active" : "Suspended"}</span></td>
-            <td style="text-align:right; white-space:nowrap;">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="editRoleAdmin('${a.id}')">แก้ไข</button>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleRoleAdminActive('${a.id}')">${act ? "ระงับ" : "เปิดใช้"}</button>
-              <button type="button" class="btn btn-danger btn-sm" onclick="deleteAdminAccount('${a.id}')">ลบ</button>
-            </td>
-          </tr>
-        `;
+        return `\n          <tr>\n            <td><strong>${escapeHtml(a.username)}</strong></td>\n            <td>${escapeHtml(a.displayName || a.username)}</td>\n            <td><span class="badge badge-opt">${escapeHtml(a.role || "Super Admin")}</span></td>\n            <td><span class="badge ${act ? "badge-matched" : "badge-req"}">${act ? "Active" : "Suspended"}</span></td>\n            <td style="text-align:right; white-space:nowrap;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editRoleAdmin('${a.id}')">แก้ไข</button>\n              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleRoleAdminActive('${a.id}')">${act ? "ระงับ" : "เปิดใช้"}</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteAdminAccount('${a.id}')">ลบ</button>\n            </td>\n          </tr>\n        `;
       }).join("") || `<tr><td colspan="5" class="empty-state">ไม่มีบัญชีแอดมิน</td></tr>`;
 
       if (roleTbody) roleTbody.innerHTML = adminRowsHtml;
@@ -2854,27 +2766,14 @@ function doPost(e) {
           });
         });
 
-        breakdown.innerHTML = Object.keys(counts).map(loc => `
-          <div style="background:var(--surface-alt); border:1px solid var(--border); padding:12px 16px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:13.5px; font-weight:700; color:var(--ink-secondary);">${escapeHtml(loc)}</span>
-            <strong style="font-size:18px; color:var(--brand);">${counts[loc]} ชิ้น</strong>
-          </div>
-        `).join("");
+        breakdown.innerHTML = Object.keys(counts).map(loc => `\n          <div style="background:var(--surface-alt); border:1px solid var(--border); padding:12px 16px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">\n            <span style="font-size:13.5px; font-weight:700; color:var(--ink-secondary);">${escapeHtml(loc)}</span>\n            <strong style="font-size:18px; color:var(--brand);">${counts[loc]} ชิ้น</strong>\n          </div>\n        `).join("");
       }
 
       // Unmatched
       const unmatchedTbody = document.getElementById("unmatchedRequestsTbody");
       if (unmatchedTbody) {
         const unmatched = latestReqs.filter(r => !r.matched);
-        unmatchedTbody.innerHTML = unmatched.map(r => `
-          <tr>
-            <td>${r.date} ${r.time}</td>
-            <td><strong>${escapeHtml(r.house)}</strong></td>
-            <td>${escapeHtml(r.locationName)}</td>
-            <td>${escapeHtml(r.phone)}</td>
-            <td><span class="badge badge-unmatched">รอพัสดุรับเข้า</span></td>
-          </tr>
-        `).join("") || `<tr><td colspan="5" class="empty-state">ไม่มีคำขอค้าง</td></tr>`;
+        unmatchedTbody.innerHTML = unmatched.map(r => `\n          <tr>\n            <td>${r.date} ${r.time}</td>\n            <td><strong>${escapeHtml(r.house)}</strong></td>\n            <td>${escapeHtml(r.locationName)}</td>\n            <td>${escapeHtml(r.phone)}</td>\n            <td><span class="badge badge-unmatched">รอพัสดุรับเข้า</span></td>\n          </tr>\n        `).join("") || `<tr><td colspan="5" class="empty-state">ไม่มีคำขอค้าง</td></tr>`;
       }
 
       // Parcels Tbody
@@ -2884,20 +2783,7 @@ function doPost(e) {
         appState.requests.forEach(r => { if (!houseLocMap[r.house]) houseLocMap[r.house] = r; });
         pclTbody.innerHTML = appState.parcels.map(p => {
           const match = houseLocMap[p.house];
-          return `
-            <tr>
-              <td>${p.date}</td>
-              <td><strong>${escapeHtml(p.house)}</strong></td>
-              <td><code>${escapeHtml(p.carrier)}</code></td>
-              <td>${escapeHtml(p.recipient)}</td>
-              <td>${match ? escapeHtml(match.locationName) : "หน้าห้องนิติบุคคล / Office"}</td>
-              <td><span class="badge ${match ? 'badge-matched' : 'badge-opt'}">${match ? 'จับคู่สำเร็จ' : 'รอคำขอ'}</span></td>
-              <td style="text-align:right;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleParcel('${p.id}')">แก้ไข</button>
-                <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleParcel('${p.id}')">ลบ</button>
-              </td>
-            </tr>
-          `;
+          return `\n            <tr>\n              <td>${p.date}</td>\n              <td><strong>${escapeHtml(p.house)}</strong></td>\n              <td><code>${escapeHtml(p.carrier)}</code></td>\n              <td>${escapeHtml(p.recipient)}</td>\n              <td>${match ? escapeHtml(match.locationName) : "หน้าห้องนิติบุคคล / Office"}</td>\n              <td><span class="badge ${match ? 'badge-matched' : 'badge-opt'}">${match ? 'จับคู่สำเร็จ' : 'รอคำขอ'}</span></td>\n              <td style="text-align:right;">\n                <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleParcel('${p.id}')">แก้ไข</button>\n                <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleParcel('${p.id}')">ลบ</button>\n              </td>\n            </tr>\n          `;
         }).join("") || `<tr><td colspan="7" class="empty-state">ยังไม่มีพัสดุรับเข้าประจำวันนี้</td></tr>`;
       }
 
@@ -2905,58 +2791,25 @@ function doPost(e) {
       const matchedTbody = document.getElementById("matchedHousesTbody");
       if (matchedTbody) {
         const matchedList = buildMatchedHousesSummary();
-        matchedTbody.innerHTML = matchedList.map(item => `
-          <tr>
-            <td style="text-align:center;"><input type="checkbox" class="matched-house-select-chk" data-house="${escapeHtml(item.house)}" style="transform:scale(1.3); cursor:pointer;"></td>
-            <td><strong>${escapeHtml(item.house)}</strong></td>
-            <td>${escapeHtml(item.locationName)}</td>
-            <td>${escapeHtml(item.phone)}</td>
-            <td style="text-align:center; font-weight:800; color:var(--brand);">${item.count} ชิ้น</td>
-            <td><code>${escapeHtml(item.references)}</code></td>
-            <td><span class="badge badge-matched">พร้อมพิมพ์จ่าย</span></td>
-          </tr>
-        `).join("") || `<tr><td colspan="7" class="empty-state">ไม่มีห้องชุดที่พร้อมจ่าย</td></tr>`;
+        matchedTbody.innerHTML = matchedList.map(item => `\n          <tr>\n            <td style="text-align:center;"><input type="checkbox" class="matched-house-select-chk" data-house="${escapeHtml(item.house)}" style="transform:scale(1.3); cursor:pointer;"></td>\n            <td><strong>${escapeHtml(item.house)}</strong></td>\n            <td>${escapeHtml(item.locationName)}</td>\n            <td>${escapeHtml(item.phone)}</td>\n            <td style="text-align:center; font-weight:800; color:var(--brand);">${item.count} ชิ้น</td>\n            <td><code>${escapeHtml(item.references)}</code></td>\n            <td><span class="badge badge-matched">พร้อมพิมพ์จ่าย</span></td>\n          </tr>\n        `).join("") || `<tr><td colspan="7" class="empty-state">ไม่มีห้องชุดที่พร้อมจ่าย</td></tr>`;
       }
 
       // Saved requests Tbody
       const reqTbody = document.getElementById("savedRequestsTbody");
       if (reqTbody) {
-        reqTbody.innerHTML = appState.requests.map(r => `
-          <tr>
-            <td>${r.date}</td><td>${r.time}</td><td><strong>${escapeHtml(r.house)}</strong></td><td>${escapeHtml(r.locationName)}</td><td>${escapeHtml(r.phone)}</td>
-            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พร้อมจ่าย' : 'รอพัสดุ'}</span></td>
-            <td style="text-align:right;">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleRequest('${r.id}')">แก้ไข</button>
-              <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleRequest('${r.id}')">ลบ</button>
-            </td>
-          </tr>
-        `).join("") || `<tr><td colspan="7" class="empty-state">ไม่มีรายการคำขอ</td></tr>`;
+        reqTbody.innerHTML = appState.requests.map(r => `\n          <tr>\n            <td>${r.date}</td><td>${r.time}</td><td><strong>${escapeHtml(r.house)}</strong></td><td>${escapeHtml(r.locationName)}</td><td>${escapeHtml(r.phone)}</td>\n            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พร้อมจ่าย' : 'รอพัสดุ'}</span></td>\n            <td style="text-align:right;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleRequest('${r.id}')">แก้ไข</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleRequest('${r.id}')">ลบ</button>\n            </td>\n          </tr>\n        `).join("") || `<tr><td colspan="7" class="empty-state">ไม่มีรายการคำขอ</td></tr>`;
       }
 
       // Locations Tbody
       const locTbody = document.getElementById("locationsTbody");
       if (locTbody) {
-        locTbody.innerHTML = appState.locations.map(l => `
-          <tr>
-            <td><strong>${escapeHtml(l.name)}</strong></td>
-            <td><span class="badge ${l.requirePhone ? 'badge-req' : 'badge-opt'}">${l.requirePhone ? 'บังคับกรอกเบอร์โทร' : 'ไม่ต้องกรอก'}</span></td>
-            <td style="text-align:right;">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="editLocation('${l.id}')">แก้ไข</button>
-              <button type="button" class="btn btn-danger btn-sm" onclick="deleteLocation('${l.id}')">ลบ</button>
-            </td>
-          </tr>
-        `).join("");
+        locTbody.innerHTML = appState.locations.map(l => `\n          <tr>\n            <td><strong>${escapeHtml(l.name)}</strong></td>\n            <td><span class="badge ${l.requirePhone ? 'badge-req' : 'badge-opt'}">${l.requirePhone ? 'บังคับกรอกเบอร์โทร' : 'ไม่ต้องกรอก'}</span></td>\n            <td style="text-align:right;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editLocation('${l.id}')">แก้ไข</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteLocation('${l.id}')">ลบ</button>\n            </td>\n          </tr>\n        `).join("");
       }
 
       // Settings Sub-tab 5 requests history Tbody
       const histTbody = document.getElementById("settingsRequestsHistoryTbody");
       if (histTbody) {
-        histTbody.innerHTML = appState.requests.map(r => `
-          <tr>
-            <td>📅 ${r.date}</td><td>${r.time}</td><td><strong>${escapeHtml(r.house)}</strong></td><td>${escapeHtml(r.locationName)}</td><td>${escapeHtml(r.phone)}</td>
-            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พัสดุพร้อมจ่าย' : 'ยังไม่มีพัสดุ'}</span></td>
-          </tr>
-        `).join("") || `<tr><td colspan="6" class="empty-state">ยังไม่มีประวัติคำขอ</td></tr>`;
+        histTbody.innerHTML = appState.requests.map(r => `\n          <tr>\n            <td>📅 ${r.date}</td><td>${r.time}</td><td><strong>${escapeHtml(r.house)}</strong></td><td>${escapeHtml(r.locationName)}</td><td>${escapeHtml(r.phone)}</td>\n            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พัสดุพร้อมจ่าย' : 'ยังไม่มีพัสดุ'}</span></td>\n          </tr>\n        `).join("") || `<tr><td colspan="6" class="empty-state">ยังไม่มีประวัติคำขอ</td></tr>`;
       }
 
       document.getElementById("houseCountLabel").textContent = appState.houses.length;
