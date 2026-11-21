@@ -2,8 +2,9 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ระบบจัดการและแจ้งรับพัสดุนิติบุคคล</title>
+  <!-- SheetJS สำหรับนำเข้า/ส่งออกไฟล์ Excel (.xlsx / .xls / .csv) จริง -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,9 +14,9 @@
       --bg: #12242A;
       --surface: #0D3F46;
       --surface-alt: #0E5157;
-      --surface-glass: rgba(13, 63, 70, 0.88);
+      --surface-glass: rgba(13, 63, 70, 0.92);
       --border: #17636A;
-      --border-subtle: rgba(23, 99, 106, 0.4);
+      --border-subtle: rgba(23, 99, 106, 0.45);
       --ink: #ffffff;
       --ink-secondary: #f8fafc;
       --muted: #cbd5e1;
@@ -25,11 +26,11 @@
       --brand-border: #C5A880;
       --brand-gradient: linear-gradient(135deg, #8A6D3B 0%, #C5A880 50%, #E5CFA3 100%);
       --success: #10b981;
-      --success-soft: rgba(16, 185, 129, 0.12);
+      --success-soft: rgba(16, 185, 129, 0.14);
       --warning: #f59e0b;
-      --warning-soft: rgba(245, 158, 11, 0.12);
+      --warning-soft: rgba(245, 158, 11, 0.14);
       --danger: #f43f5e;
-      --danger-soft: rgba(244, 63, 94, 0.12);
+      --danger-soft: rgba(244, 63, 94, 0.14);
       --radius: 16px;
       --radius-sm: 10px;
       --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25);
@@ -41,11 +42,14 @@
     ::placeholder { color: rgba(255, 255, 255, 0.45); opacity: 1; }
     body {
       margin: 0; font-family: var(--font); color: var(--ink); background-color: var(--bg);
-      background-image: radial-gradient(at 0% 0%, rgba(23, 99, 106, 0.15) 0px, transparent 50%),
-                        radial-gradient(at 100% 0%, rgba(13, 63, 70, 0.2) 0px, transparent 45%),
-                        radial-gradient(at 50% 100%, rgba(197, 168, 128, 0.05) 0px, transparent 50%);
+      background-image: radial-gradient(at 0% 0%, rgba(23, 99, 106, 0.18) 0px, transparent 50%),
+                        radial-gradient(at 100% 0%, rgba(13, 63, 70, 0.22) 0px, transparent 45%),
+                        radial-gradient(at 50% 100%, rgba(197, 168, 128, 0.06) 0px, transparent 50%);
       background-attachment: fixed; line-height: 1.6; font-size: 15px; -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
+
+    /* Header */
     .app-header {
       background: var(--surface-glass); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border);
       position: sticky; top: 0; z-index: 40; box-shadow: var(--shadow);
@@ -54,20 +58,20 @@
     .brand-group { display: flex; align-items: center; gap: 14px; }
     .brand-icon {
       width: 44px; height: 44px; border-radius: 12px; background: var(--brand-gradient); color: #12242A;
-      display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 21px; box-shadow: var(--shadow-brand);
+      display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 21px; box-shadow: var(--shadow-brand); flex-shrink: 0;
     }
     .brand-title { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
     .brand-subtitle { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
-    .header-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .sync-badge {
       display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px;
-      background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-size: 13px; font-weight: 700; cursor: pointer;
+      background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399; font-size: 13px; font-weight: 700;
     }
-    .sync-badge.paused {
-      background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;
+    .sync-badge.offline {
+      background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.35); color: #fbbf24;
     }
     .sync-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success); animation: pulseGreen 1.4s infinite ease-in-out; }
-    .sync-badge.paused .sync-dot { background: var(--warning); animation: none; }
+    .sync-badge.offline .sync-dot { background: var(--warning); animation: none; }
     @keyframes pulseGreen {
       0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
       50% { opacity: 0.5; transform: scale(1.15); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
@@ -78,33 +82,42 @@
     .mode-btn:hover:not(.active) { color: var(--ink); }
     .mode-btn.active { background: var(--brand-gradient); color: #12242A; box-shadow: 0 2px 8px rgba(197, 168, 128, 0.3); }
 
+    /* Container & Cards */
     .container { max-width: 1280px; margin: 0 auto; padding: 32px 24px; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px; margin-bottom: 24px; }
     .card-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid var(--border-subtle); }
     .card-title { margin: 0; font-size: 19px; font-weight: 800; color: var(--brand); }
     .card-desc { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
 
+    /* Slideshow */
     .slideshow-wrapper {
       position: relative; width: 100%; aspect-ratio: 2 / 1; max-height: 400px;
       background: linear-gradient(135deg, #12242A 0%, #0D3F46 50%, #17636A 100%);
       border-radius: 20px; overflow: hidden; margin-bottom: 28px; border: 1px solid var(--border); box-shadow: var(--shadow-md);
       display: flex; align-items: center; justify-content: center;
     }
-    .slide-img { width: 100%; height: 100%; object-fit: contain; background: var(--surface-alt); display: block; position: relative; z-index: 1; }
+    .slide-img { width: 100%; height: 100%; object-fit: contain; background: var(--surface-alt); display: block; position: relative; z-index: 1; transition: opacity 0.3s ease; }
+    .slide-caption {
+      position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); background: rgba(18, 36, 42, 0.8);
+      backdrop-filter: blur(6px); color: #fff; padding: 5px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
+      border: 1px solid rgba(197, 168, 128, 0.3); z-index: 2; max-width: 85%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .slide-empty { color: #cbd5e1; text-align: center; padding: 32px; position: relative; z-index: 1; }
     .slide-empty-title { font-size: 18px; font-weight: 700; color: var(--brand); margin-bottom: 6px; }
     .slide-nav-btn {
       position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 50%;
-      background: rgba(13, 63, 70, 0.7); backdrop-filter: blur(8px); color: var(--brand); border: 1px solid var(--border);
-      cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; z-index: 2;
+      background: rgba(13, 63, 70, 0.75); backdrop-filter: blur(8px); color: var(--brand); border: 1px solid var(--border);
+      cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; z-index: 2; transition: all 0.2s;
     }
+    .slide-nav-btn:hover { background: var(--brand); color: #12242A; }
     .slide-prev { left: 16px; }
     .slide-next { right: 16px; }
-    .slide-dots { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; background: rgba(13, 63, 70, 0.7); backdrop-filter: blur(8px); padding: 6px 12px; border-radius: 999px; z-index: 2; }
-    .slide-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); border: none; padding: 0; cursor: pointer; }
+    .slide-dots { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; background: rgba(13, 63, 70, 0.75); backdrop-filter: blur(8px); padding: 6px 12px; border-radius: 999px; z-index: 2; }
+    .slide-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); border: none; padding: 0; cursor: pointer; transition: all 0.2s; }
     .slide-dot.active { background: var(--brand); width: 22px; border-radius: 4px; }
 
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+    /* Forms & Inputs */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
     .form-group { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
     .form-label { font-size: 14px; font-weight: 700; color: var(--ink-secondary); display: flex; align-items: center; gap: 6px; }
     .req-star { color: var(--danger); font-weight: 700; }
@@ -113,82 +126,113 @@
     .input, .select, .textarea {
       font: inherit; width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm);
       background: var(--surface-alt); color: var(--ink); font-size: 14.5px; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     .input:focus, .select:focus, .textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 4px rgba(197, 168, 128, 0.2); }
 
+    /* Buttons */
     .btn {
       font: inherit; font-size: 14px; font-weight: 700; padding: 11px 20px; border-radius: var(--radius-sm);
       border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease;
     }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: var(--brand-gradient); color: #12242A; box-shadow: var(--shadow-brand); }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
     .btn-secondary { background: var(--surface-alt); color: var(--ink); border-color: var(--border); }
+    .btn-secondary:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
     .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
     .btn-warning { background: var(--warning); color: #12242A; }
+    .btn-warning:hover:not(:disabled) { filter: brightness(1.08); }
     .btn-sm { padding: 7px 13px; font-size: 13px; border-radius: 8px; }
 
+    /* Latest Submission Box */
     .latest-submission-box {
       background: var(--surface-alt); border: 1px solid var(--border); border-left: 6px solid var(--brand);
       border-radius: var(--radius); padding: 20px 24px; margin-top: 22px; box-shadow: var(--shadow);
     }
-    .latest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 14px; color: var(--ink-secondary); margin-top: 12px; }
+    .latest-submission-title { font-weight: 800; font-size: 15.5px; color: var(--brand); margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .latest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 14px; color: var(--ink-secondary); }
 
+    /* Dashboard & Stats */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .dashboard-filter-bar {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
       padding: 16px 24px; box-shadow: var(--shadow); margin-bottom: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
     }
     .dashboard-filter-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-    .filter-mode-group { display: inline-flex; background: var(--surface-alt); padding: 4px; border-radius: 8px; border: 1px solid var(--border); gap: 4px; }
+    .filter-mode-group { display: inline-flex; flex-wrap: wrap; background: var(--surface-alt); padding: 4px; border-radius: 8px; border: 1px solid var(--border); gap: 4px; }
     .filter-mode-btn { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 6px; border: none; background: transparent; color: var(--muted); cursor: pointer; }
-    .filter-mode-btn.active { background: var(--brand-gradient); color: #12242A; }
+    .filter-mode-btn.active { background: var(--brand-gradient); color: #12242A; font-weight: 700; }
 
-    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 24px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 24px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; }
     .stat-label { font-size: 13px; font-weight: 600; color: var(--muted); }
     .stat-value { font-size: 32px; font-weight: 800; color: var(--brand); }
     .stat-subtext { font-size: 12px; color: var(--muted); }
 
+    /* Tabs */
     .admin-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
-    .admin-tab-btn { font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
-    .admin-tab-btn.active { background: var(--brand-gradient); color: #12242A; border-color: var(--brand); }
+    .admin-tab-btn { font: inherit; font-size: 13.5px; font-weight: 600; padding: 9px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; transition: all 0.2s; }
+    .admin-tab-btn:hover:not(.active) { color: var(--ink); border-color: var(--brand); }
+    .admin-tab-btn.active { background: var(--brand-gradient); color: #12242A; border-color: var(--brand); font-weight: 700; }
 
     .settings-subtabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; padding: 6px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); }
     .settings-subtab-btn { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; }
-    .settings-subtab-btn.active { background: var(--brand-gradient); color: #12242A; box-shadow: var(--shadow); }
+    .settings-subtab-btn.active { background: var(--brand-gradient); color: #12242A; box-shadow: var(--shadow); font-weight: 700; }
 
+    /* Guide & Code Snippet */
+    .guide-step-box { background: var(--surface-alt); border: 1px solid var(--border); border-left: 4px solid var(--brand); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 12px; font-size: 14px; }
+    .guide-step-title { font-weight: 700; color: var(--brand); margin: 0 0 6px 0; }
     .conn-status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 16px; }
     .conn-status-card { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
-    .code-snippet-box { background: #0f172a; color: #e2e8f0; padding: 16px; border-radius: var(--radius-sm); font-family: monospace; font-size: 12.5px; line-height: 1.55; overflow-x: auto; white-space: pre; border: 1px solid #334155; margin: 0; max-height: 280px; }
+    .code-snippet-box { background: #0a1518; color: #e2e8f0; padding: 16px; border-radius: var(--radius-sm); font-family: monospace; font-size: 12.5px; line-height: 1.55; overflow-x: auto; white-space: pre; border: 1px solid var(--border); margin: 0; max-height: 320px; }
 
+    /* Tables & Badges */
     .table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
     table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
-    th { background: var(--surface-alt); color: var(--brand); font-weight: 700; padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { background: var(--surface-alt); color: var(--brand); font-weight: 700; padding: 11px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
     td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
-    tbody tr:hover { background: var(--surface-alt); }
+    tbody tr:hover { background: rgba(14, 81, 87, 0.55); }
     .empty-state { text-align: center; padding: 32px 16px; color: var(--muted); font-size: 14px; }
 
-    .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-    .badge-req { background: var(--danger-soft); color: #ff4b72; border: 1px solid #fecaca; }
+    .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .badge-req { background: var(--danger-soft); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); }
     .badge-opt { background: var(--surface-alt); color: var(--ink-secondary); border: 1px solid var(--border); }
-    .badge-matched { background: var(--success-soft); color: #10b981; border: 1px solid #bbf7d0; }
-    .badge-unmatched { background: var(--warning-soft); color: #f59e0b; border: 1px solid #fde68a; }
+    .badge-matched { background: var(--success-soft); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+    .badge-unmatched { background: var(--warning-soft); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
 
+    /* Houses Chips */
     .house-chip-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 220px; overflow-y: auto; padding: 12px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); }
     .house-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-weight: 600; }
-    .house-chip button { border: none; background: none; color: var(--danger); cursor: pointer; padding: 0 2px; font-weight: bold; }
+    .house-chip button { border: none; background: none; color: var(--danger); cursor: pointer; padding: 0 2px; font-weight: bold; font-size: 15px; }
 
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(18, 36, 42, 0.75); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+    /* A4 Preview Sheet */
+    .a4-preview-sheet {
+      background: #ffffff; color: #000000; border-radius: 12px; padding: 28px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4); overflow-x: auto;
+    }
+
+    /* Modal */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(18, 36, 42, 0.78); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
     .modal-backdrop.open { display: flex; }
-    .modal-box { background: var(--surface); border-radius: var(--radius); max-width: 500px; width: 100%; padding: 24px; box-shadow: var(--shadow-md); border: 1px solid var(--border); }
-    .modal-title { margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: var(--brand); }
-    .modal-body { margin: 0 0 20px 0; font-size: 14px; color: var(--ink-secondary); white-space: pre-line; }
+    .modal-box { background: var(--surface); border-radius: var(--radius); max-width: 460px; width: 100%; padding: 24px; box-shadow: var(--shadow-md); border: 1px solid var(--brand); }
+    .modal-title { margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: var(--brand); }
+    .modal-body { margin: 0 0 20px 0; font-size: 14.5px; color: var(--ink-secondary); white-space: pre-line; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
 
-    .tg-chat-item {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;
+    /* Toast Notification */
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 120; display: flex; flex-direction: column; gap: 8px; max-width: 360px; }
+    .toast-item {
+      background: var(--surface); border: 1px solid var(--brand); color: var(--ink); padding: 12px 16px; border-radius: 12px;
+      box-shadow: var(--shadow-md); font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 10px;
+      animation: slideInRight 0.25s ease;
     }
-    .a4-preview-sheet { background: #fff; color: #000; padding: 24px; border-radius: 10px; overflow-x: auto; }
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
     .hidden { display: none !important; }
 
     @media (max-width: 768px) {
@@ -209,16 +253,16 @@
         <div class="brand-icon">📦</div>
         <div>
           <h1 class="brand-title" id="headerProjectNameBadge">🏢 โครงการอาคารชุดนิติบุคคล</h1>
-          <p class="brand-subtitle" id="headerProjectSubtitle">Juristic Parcel & Request Management Portal • บันทึกล่าสุด: <span id="lastSavedClockText">-</span></p>
+          <p class="brand-subtitle" id="headerProjectSubtitle">Juristic Parcel & Request Management Portal</p>
         </div>
       </div>
       <div class="header-controls">
-        <div class="sync-badge" id="realSyncBadge" onclick="toggleAutoSyncPause()" title="คลิกเพื่อสลับเปิด/พักการดึงข้อมูลอัตโนมัติ">
+        <div class="sync-badge offline" id="realSyncBadge" title="สถานะการซิงค์ข้อมูล Cloud">
           <span class="sync-dot"></span>
-          <span id="realSyncText">ซิงค์อัตโนมัติ (คลิกเพื่อพัก)</span>
+          <span id="realSyncText">โหมดออฟไลน์ (Local)</span>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" id="headerCloudPullBtn" onclick="fetchFromGoogleSheetsCloud(true)">
-          🔄 ดึงข้อมูล Cloud ทันที
+          🔄 ดึงข้อมูล Cloud (<span id="cloudIntervalBadgeLabel">20s</span>)
         </button>
         <div class="cutoff-badge">
           <span>⏰ ตัดรอบ 21:00 น. (<span id="clockDisplay">--:--:--</span>)</span>
@@ -232,14 +276,15 @@
   </header>
 
   <main class="container">
-    <!-- USER PORTAL -->
+    <!-- ==================== USER PORTAL ==================== -->
     <section id="viewUserPortal">
       <div class="slideshow-wrapper" id="userSlideshow" onmouseenter="handleSlideshowHover(true)" onmouseleave="handleSlideshowHover(false)">
         <div class="slide-empty" id="slideEmptyState">
           <div class="slide-empty-title">📢 พื้นที่แสดงภาพประกาศนิติบุคคล</div>
-          <div style="font-size: 13px;">สามารถตั้งค่าได้ที่เมนู "ภาพประกาศ" หลังบ้าน</div>
+          <div style="font-size: 13px;">สามารถตั้งค่าได้ที่เมนู "ภาพประกาศ & บัญชีแอดมิน" หลังบ้าน</div>
         </div>
         <img id="slideImageEl" class="slide-img hidden" alt="ภาพประกาศ">
+        <div id="slideCaptionEl" class="slide-caption hidden"></div>
         <button type="button" class="slide-nav-btn slide-prev hidden" id="slidePrevBtn" onclick="changeSlide(-1)">❮</button>
         <button type="button" class="slide-nav-btn slide-next hidden" id="slideNextBtn" onclick="changeSlide(1)">❯</button>
         <div class="slide-dots hidden" id="slideDotsContainer"></div>
@@ -247,7 +292,7 @@
 
       <div class="card">
         <div class="card-header" id="userFormCardHeader">
-          <div>
+          <div style="width: 100%;">
             <h2 class="card-title" id="userFormCardTitle">📝 แบบฟอร์มแจ้งขอรับพัสดุ</h2>
             <p class="card-desc" id="userFormCardDesc">เลือกหรือพิมพ์บ้านเลขที่ และระบุจุดรับพัสดุที่ต้องการ</p>
             <div id="mobileFormProjectTitle" class="hidden">🏢 โครงการอาคารชุดนิติบุคคล</div>
@@ -257,9 +302,9 @@
           <div class="form-grid">
             <div class="form-group">
               <label class="form-label" for="reqHouseInput">บ้านเลขที่ / ห้องชุด <span class="req-star">*</span></label>
-              <input type="text" id="reqHouseInput" class="input" list="houseDatalist" placeholder="เช่น 62/1" required autocomplete="off" onblur="handleHouseAutoFormat(this)">
+              <input type="text" id="reqHouseInput" class="input" list="houseDatalist" placeholder="เช่น 62/1 หรือ 1" required autocomplete="off" onblur="handleHouseAutoFormat(this)">
               <datalist id="houseDatalist"></datalist>
-              <span class="form-hint">พิมพ์ย่อ เช่น 62/1 ระบบจะจัดรูปแบบให้เป็นมาตรฐานอัตโนมัติ</span>
+              <span class="form-hint">พิมพ์ย่อ เช่น 62/1 หรือ 1 ระบบจะจัดรูปแบบเป็นมาตรฐานอัตโนมัติ</span>
             </div>
             <div class="form-group">
               <label class="form-label" for="reqLocationSelect">จุดรับพัสดุ (Pickup Place) <span class="req-star">*</span></label>
@@ -271,15 +316,20 @@
             <div class="form-group hidden" id="reqPhoneGroup">
               <label class="form-label" for="reqPhoneInput">เบอร์โทรศัพท์ติดต่อ <span class="req-star hidden" id="phoneReqStar">* (บังคับกรอก)</span></label>
               <input type="tel" id="reqPhoneInput" class="input" placeholder="เช่น 081-234-5678">
+              <span class="form-hint">จำเป็นสำหรับจุดรับนี้เพื่อส่งรหัส OTP / แจ้งเตือน</span>
             </div>
           </div>
-          <div id="userFormError" style="color: var(--danger); font-size: 13px; font-weight: 600; margin-bottom: 12px;" class="hidden"></div>
-          <button type="submit" class="btn btn-primary" id="btnSubmitUserReq">🚀 ส่งคำขอรับพัสดุ (Auto-Sync & แจ้งเตือน)</button>
+          <div id="userFormError" style="color: var(--danger); font-size: 13.5px; font-weight: 700; margin-bottom: 12px;" class="hidden"></div>
+          <button type="submit" id="btnSubmitUserReq" class="btn btn-primary">🚀 ส่งคำขอรับพัสดุ (Auto-Sync & แจ้งเตือน)</button>
         </form>
+
         <div id="latestRequestBlueBox" class="latest-submission-box hidden">
-          <div class="latest-submission-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <strong style="color: var(--brand); font-size: 16px;">✅ ส่งคำขอรับพัสดุล่าสุดสำเร็จ</strong>
-            <span class="badge" style="background:var(--brand); color:#12242A;" id="latestSyncStatusBadge">💾 บันทึกข้อมูลเรียบร้อย</span>
+          <div class="latest-submission-title" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>✅ ส่งคำขอรับพัสดุล่าสุดสำเร็จ</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <span class="badge" style="background:var(--brand); color:#12242A;" id="latestSyncStatusBadge">💾 บันทึกลงระบบแล้ว</span>
+              <span class="badge badge-opt hidden" id="latestTgStatusBadge">🤖 Telegram</span>
+            </div>
           </div>
           <div class="latest-grid" id="latestRequestSummaryContent"></div>
         </div>
@@ -287,16 +337,19 @@
 
       <div class="card" id="userAnnouncementTickerCard" style="margin-top: 20px; border-left: 6px solid var(--brand); padding: 16px 20px;">
         <div style="display: flex; align-items: center; gap: 12px;">
-          <span style="font-size: 22px;">📢</span>
+          <span style="font-size: 24px;">📢</span>
           <div style="flex: 1; overflow: hidden;">
-            <div style="font-size: 13px; font-weight: 700; color: var(--brand); margin-bottom: 2px;">ประกาศสำคัญจากนิติบุคคล</div>
-            <div id="userAnnouncementTickerText" style="font-size: 14.5px; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">กำลังโหลดประกาศจากระบบ...</div>
+            <div style="font-size: 13px; font-weight: 700; color: var(--brand); margin-bottom: 2px; display:flex; justify-content:space-between;">
+              <span>ประกาศสำคัญจากนิติบุคคล</span>
+              <span id="tickerCounterBadge" style="font-size:11.5px; color:var(--muted);"></span>
+            </div>
+            <div id="userAnnouncementTickerText" style="font-size: 14.5px; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity 0.3s;">กำลังโหลดประกาศจากระบบ...</div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ADMIN PORTAL -->
+    <!-- ==================== ADMIN PORTAL ==================== -->
     <section id="viewAdminPortal" class="hidden">
       <!-- Login Gate -->
       <div id="adminLoginGate" class="card" style="max-width: 460px; margin: 40px auto;">
@@ -315,7 +368,7 @@
             <label class="form-label" for="loginPassword">Password</label>
             <input type="password" id="loginPassword" class="input" placeholder="ระบุรหัสผ่าน" required>
           </div>
-          <div id="loginErrorMsg" style="color: var(--danger); font-size: 13px; margin-bottom: 12px;" class="hidden"></div>
+          <div id="loginErrorMsg" style="color: var(--danger); font-size: 13px; font-weight: 600; margin-bottom: 12px;" class="hidden"></div>
           <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px;">
             <span class="form-hint" id="defaultLoginHintText">ค่าเริ่มต้น: <strong>admin</strong> / <strong>1234</strong></span>
             <button type="submit" class="btn btn-primary" style="margin-left:auto;">เข้าสู่ระบบ</button>
@@ -384,12 +437,12 @@
 
         <!-- Admin Navigation Tabs -->
         <div class="admin-tabs no-print">
-          <button type="button" class="admin-tab-btn active" data-tab="tabParcels" onclick="switchAdminTab('tabParcels')">📦 1. พัสดุประจำวัน & จับคู่คำขอ (18:01)</button>
+          <button type="button" class="admin-tab-btn active" data-tab="tabParcels" onclick="switchAdminTab('tabParcels')">📦 1. พัสดุประจำวัน & จับคู่คำขอ</button>
           <button type="button" class="admin-tab-btn" data-tab="tabSavedRequests" onclick="switchAdminTab('tabSavedRequests')">📋 2. รายการคำขอที่บันทึก (Import / Export)</button>
           <button type="button" class="admin-tab-btn" data-tab="tabReportA4" onclick="switchAdminTab('tabReportA4')">🖨️ 3. ออกรายงาน A4 / Excel</button>
           <button type="button" class="admin-tab-btn" data-tab="tabLocationsHouses" onclick="switchAdminTab('tabLocationsHouses')">📍 4. จุดรับพัสดุ & สร้างบ้านเลขที่</button>
           <button type="button" class="admin-tab-btn" data-tab="tabAnnouncementsAdmins" onclick="switchAdminTab('tabAnnouncementsAdmins')">📢 5. ภาพประกาศ & บัญชีแอดมิน</button>
-          <button type="button" class="admin-tab-btn" data-tab="tabBackupDelete" onclick="switchAdminTab('tabBackupDelete')">💾 สำรองไฟล์ & Cloud</button>
+          <button type="button" class="admin-tab-btn" data-tab="tabBackupDelete" onclick="switchAdminTab('tabBackupDelete')">💾 สำรองไฟล์ (Backup / Restore)</button>
           <button type="button" class="admin-tab-btn" data-tab="tabSettings" onclick="switchAdminTab('tabSettings')">⚙️ การตั้งค่า (Settings)</button>
           <button type="button" class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="handleAdminLogout()">ออกจากระบบแอดมิน</button>
         </div>
@@ -400,7 +453,7 @@
             <div class="card-header">
               <div>
                 <h2 class="card-title" style="color: var(--warning);">📢 รายการคำขอที่ยังไม่มีพัสดุในระบบ</h2>
-                <p class="card-desc">บ้านที่ส่งคำขอเข้ามา แต่ยังไม่มีรายการพัสดุในระบบ</p>
+                <p class="card-desc">บ้านที่ส่งคำขอเข้ามา แต่ยังไม่มีรายการพัสดุรับเข้าในระบบ</p>
               </div>
               <button type="button" class="btn btn-warning" onclick="handleExportAndClearUnmatched()">
                 📢 ยังไม่มีพัสดุในระบบ (ส่งออกรายงาน & เคลียร์คำขอ)
@@ -438,7 +491,7 @@
                   <input type="text" id="parcelHouseInput" class="input" list="houseDatalist" placeholder="เช่น 62/0001" required onblur="handleHouseAutoFormat(this)">
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" for="parcelCarrierInput">เลขอ้างอิง <span class="req-star">*</span></label>
+                  <label class="form-label" for="parcelCarrierInput">เลขอ้างอิง / Tracking <span class="req-star">*</span></label>
                   <input type="text" id="parcelCarrierInput" class="input" placeholder="เช่น 6911-00012" required>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
@@ -475,7 +528,7 @@
                 <p class="card-desc">เลือกห้องชุดที่จับคู่แล้วที่ต้องการสั่งพิมพ์รายงานออกทางกระดาษ A4</p>
               </div>
               <button type="button" class="btn btn-primary" onclick="handlePrintSelectedRequestsAndClear()">
-                🖨️ ออกรายงานเฉพาะห้องที่เลือก (พิมพ์แล้วลบออกจากหน้าคำขอ)
+                🖨️ ออกรายงานเฉพาะห้องที่เลือก (สร้างรายงาน & ลบออกจากคิว)
               </button>
             </div>
             <div class="table-wrap">
@@ -567,10 +620,11 @@
             <div class="card-header no-print">
               <div>
                 <h2 class="card-title">📄 หน้าต่างพรีวิวรายงานจ่ายพัสดุ A4 PDF (Latest Dispatch Report)</h2>
-                <p class="card-desc">💡 <strong>คำแนะนำการเซฟเป็นไฟล์ PDF:</strong> เลือกเครื่องพิมพ์ปลายทางเป็น "บันทึกเป็น PDF" (Save as PDF)</p>
+                <p class="card-desc">💡 <strong>คำแนะนำ:</strong> กดปุ่มพิมพ์แล้วเลือกเครื่องพิมพ์ปลายทางเป็น "บันทึกเป็น PDF" (Save as PDF)</p>
               </div>
               <div style="display:flex; gap: 8px; flex-wrap: wrap;" id="reportActionButtonsArea">
-                <button type="button" class="btn btn-primary" onclick="handlePrintLatestReport()">📄 ออกรายงานเป็นไฟล์ A4 PDF (Save to PDF)</button>
+                <button type="button" class="btn btn-primary" onclick="handlePrintLatestReport()">📄 สั่งพิมพ์ / บันทึก A4 PDF</button>
+                <button type="button" class="btn btn-secondary" onclick="handleOpenPrintWindowLatest()">🪟 เปิดหน้าต่างพิมพ์ใหม่</button>
                 <button type="button" class="btn btn-secondary" onclick="handleExportExcelLatestReport()">📊 ส่งออกไฟล์ Excel (.xlsx)</button>
               </div>
             </div>
@@ -651,8 +705,9 @@
                 <button type="submit" class="btn btn-primary">⚡ สร้างรายการบ้านเลขที่ในคลิกเดียว</button>
               </div>
             </form>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:8px;">
               <strong style="font-size: 14px;">รายการบ้านเลขที่ปัจจุบัน (<span id="houseCountLabel">0</span> หลัง)</strong>
+              <button type="button" class="btn btn-danger btn-sm" onclick="handleClearAllHouses()">🗑️ ล้างรายการบ้านเลขที่ทั้งหมด</button>
             </div>
             <div class="house-chip-list" id="houseChipContainer"></div>
           </div>
@@ -664,7 +719,7 @@
             <div class="card-header">
               <div>
                 <h2 class="card-title">🖼️ การจัดการภาพประกาศหน้าบ้าน (Announcements)</h2>
-                <p class="card-desc">รองรับการอัปโหลดภาพ (ย่อขนาดอัตโนมัติไม่ให้เต็มความจำ) หรือวางลิงก์รูปภาพ</p>
+                <p class="card-desc">รองรับการอัปโหลดภาพ (บีบอัดอัตโนมัติไม่ให้เต็มหน่วยความจำ) หรือวางลิงก์รูปภาพ</p>
               </div>
             </div>
             <form onsubmit="handleAddAnnouncement(event)" novalidate style="background: var(--surface-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
@@ -676,7 +731,7 @@
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label" for="annUrlInput">วางลิงก์รูปภาพ (Image URL)</label>
-                  <input type="text" id="annUrlInput" class="input" placeholder="วางลิงก์รูปภาพ">
+                  <input type="text" id="annUrlInput" class="input" placeholder="https://...">
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label" for="annFileInput">หรือเลือกไฟล์ภาพอัปโหลด</label>
@@ -761,7 +816,7 @@
             <div class="card-header">
               <div>
                 <h2 class="card-title">💬 การจัดการข้อความประกาศด่วนหน้าบ้าน (Text Announcements)</h2>
-                <p class="card-desc">พิมพ์ข้อความประกาศหรือข่าวสารสำคัญเพื่อแสดงที่แถบประกาศด้านล่างหน้าฟอร์มคำขอหน้าบ้าน</p>
+                <p class="card-desc">พิมพ์ข้อความประกาศหรือข่าวสารสำคัญเพื่อแสดงวนอัตโนมัติที่แถบประกาศด้านล่างหน้าฟอร์มลูกบ้าน</p>
               </div>
             </div>
             <form onsubmit="handleSaveTextAnnouncement(event)" style="background: var(--surface-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
@@ -794,71 +849,81 @@
             <div class="card-header">
               <div>
                 <h2 class="card-title">☁️ การเชื่อมต่อ Google Sheets (Real-Sync) & สำรองไฟล์ (.json)</h2>
-                <p class="card-desc">บันทึกลิงก์ Google Apps Script Web App URL ส่งข้อมูลล่าสุดขึ้นชีต หรือสำรอง/กู้คืนไฟล์ข้อมูล (.json)</p>
+                <p class="card-desc">บันทึกหรืออัปเดตลิงก์ Google Apps Script Web App URL ดึงข้อมูลล่าสุดจากชีต และสำรอง/กู้คืนไฟล์ข้อมูล (.json)</p>
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="pushStateToGoogleSheetsCloud(true)">
-                  ⬆️ ส่งข้อมูลในเครื่องขึ้น Cloud ทันที
-                </button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="fetchFromGoogleSheetsCloud(true)">
-                  ⬇️ ดึงข้อมูลล่าสุดจาก Cloud ทันที
-                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="pushStateToGoogleSheetsCloud(true)">⬆️ ส่งข้อมูลขึ้น Cloud</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="fetchFromGoogleSheetsCloud(true)">🔄 ดึงข้อมูลล่าสุดจาก Cloud</button>
               </div>
             </div>
             <div class="form-grid" style="margin-bottom: 16px;">
               <div class="form-group" style="margin-bottom:0;">
                 <label class="form-label" for="gasUrlInput">Google Apps Script Web App URL</label>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <input type="text" id="gasUrlInput" class="input" style="flex:1 1 240px;" placeholder="วางลิงก์ Web App URL ที่ลงท้ายด้วย /exec" oninput="handleDraftGasUrlInput(this.value)">
-                  <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveGasUrl(true)">💾 บันทึก URL</button>
+                  <input type="text" id="gasUrlInput" class="input" style="flex:1 1 240px;" placeholder="https://script.google.com/macros/s/.../exec" oninput="handleDraftGasUrlInput(this.value)">
+                  <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveGasUrl(true)">💾 บันทึก & ดึงข้อมูล</button>
                 </div>
               </div>
               <div class="form-group" style="margin-bottom:0; justify-content:flex-end;">
                 <div style="display:flex; gap: 8px; flex-wrap:wrap;">
                   <button type="button" class="btn btn-secondary" onclick="handleExportBackupJson()">💾 ดาวน์โหลดไฟล์สำรอง (.json)</button>
-                  <button type="button" class="btn btn-primary" onclick="handleBackupToGoogleDrive()">☁️ สำรอง (.json) ลง Google Drive</button>
+                  <button type="button" class="btn btn-primary" onclick="handleBackupToGoogleDrive()">☁️ บันทึกไฟล์สำรอง (.json) ลง Google Drive</button>
                   <label class="btn btn-secondary" style="cursor:pointer;">📂 กู้คืนข้อมูลจากไฟล์ (.json)<input type="file" accept=".json" style="display:none;" onchange="handleImportBackupJson(event)"></label>
                 </div>
               </div>
             </div>
 
-            <!-- Google Apps Script Code Helper -->
-            <div style="margin-top: 16px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-                <strong style="color: var(--brand); font-size: 14px;">📜 โค้ด Google Apps Script (รหัส.gs) สำหรับนำไปวางและ Deploy เป็น Web App</strong>
+            <!-- Google Apps Script Code Guide -->
+            <div class="guide-step-box" style="margin-top: 16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                <div class="guide-step-title" style="margin:0;">📜 โค้ด Google Apps Script สำเร็จรูป (สำหรับวางใน Google Sheets -> ส่วนขยาย -> Apps Script)</div>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="copyGasScriptCode()">📋 คัดลอกโค้ด Apps Script</button>
               </div>
-              <pre class="code-snippet-box" id="gasCodeSnippetBox">function doGet(e) {
-  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'getState';
+              <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--muted);">
+                วิธีติดตั้ง: เปิด Google Sheets ใหม่ -> คลิก <strong>ส่วนขยาย (Extensions) > Apps Script</strong> -> วางโค้ดด้านล่างทับทั้งหมด -> กด <strong>ทำให้ใช้งานได้ (Deploy) > รายการใหม่ (New deployment) > เว็บแอป (Web app)</strong> -> ตั้งสิทธิ์ผู้เข้าถึงเป็น <strong>ทุกคน (Anyone)</strong> -> คัดลอก URL ที่ลงท้ายด้วย <code>/exec</code> มาวางในช่องด้านบน
+              </p>
+              <pre class="code-snippet-box" id="gasScriptSourceCode">function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'get_state';
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('AppState') || ss.insertSheet('AppState');
   var raw = sheet.getRange('A1').getValue();
-  return ContentService.createTextOutput(raw || '{"ok":true,"empty":true}')
+  var data = raw ? JSON.parse(raw) : { ok: true, empty: true };
+  return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: data }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
   try {
     var payload = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (payload.action === 'backupDrive') {
-      var fileName = 'Parcel_Backup_' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMdd_HHmmss') + '.json';
+    
+    if (payload.action === 'backup_drive') {
+      var fileName = 'Juristic_Parcel_Backup_' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMdd_HHmmss') + '.json';
       var file = DriveApp.createFile(fileName, JSON.stringify(payload.state, null, 2), MimeType.PLAIN_TEXT);
-      return ContentService.createTextOutput(JSON.stringify({ ok: true, fileUrl: file.getUrl(), fileName: fileName }))
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', fileUrl: file.getUrl(), fileName: fileName }))
         .setMimeType(ContentService.MimeType.JSON);
     }
-    var sheet = ss.getSheetByName('AppState') || ss.insertSheet('AppState');
-    sheet.getRange('A1').setValue(JSON.stringify(payload.state));
-    sheet.getRange('B1').setValue(new Date());
-    return ContentService.createTextOutput(JSON.stringify({ ok: true, savedAt: new Date().toISOString() }))
+
+    // บันทึกสถานะรวมลงชีต AppState
+    var stateSheet = ss.getSheetByName('AppState') || ss.insertSheet('AppState');
+    stateSheet.getRange('A1').setValue(JSON.stringify(payload.state));
+    stateSheet.getRange('B1').setValue(new Date());
+
+    // บันทึกตารางคำขอลงชีต Requests เพื่อดูย้อนหลังง่าย
+    if (payload.state && Array.isArray(payload.state.requests)) {
+      var reqSheet = ss.getSheetByName('Requests') || ss.insertSheet('Requests');
+      reqSheet.clear();
+      reqSheet.appendRow(['ID', 'วันที่', 'เวลา', 'บ้านเลขที่', 'จุดรับพัสดุ', 'เบอร์โทร', 'สถานะ']);
+      payload.state.requests.forEach(function(r) {
+        reqSheet.appendRow([r.id, r.date, r.time, r.house, r.locationName, r.phone, r.matched ? 'พร้อมจ่าย' : 'รอพัสดุ']);
+      });
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success', syncedAt: new Date().toISOString() }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: err.toString() }))
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
-  } finally {
-    lock.releaseLock();
   }
 }</pre>
             </div>
@@ -921,9 +986,33 @@ function doPost(e) {
             </form>
           </div>
 
+          <!-- Automation Controls Card -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">⏰ ตั้งค่าระบบตัดรอบอัตโนมัติ (Automation Rules)</h2>
+                <p class="card-desc">จัดการเวลาตัดรอบคำขอและเคลียร์พัสดุประจำวันอัตโนมัติ</p>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="runAutoClearParcels1900(true)">🧪 ทดสอบเคลียร์พัสดุ (19:00)</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="runAutoCutoff2100(true)">🧪 ทดสอบตัดรอบคำขอ (21:00)</button>
+              </div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:20px;">
+              <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
+                <input type="checkbox" id="autoClear1900Check" style="width:18px; height:18px;" onchange="handleToggleAutomationSettings()">
+                เปิดใช้การเคลียร์รายการพัสดุประจำวันอัตโนมัติเวลา 19:00 น.
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
+                <input type="checkbox" id="autoCutoff2100Check" style="width:18px; height:18px;" onchange="handleToggleAutomationSettings()">
+                เปิดใช้การตัดรอบคำขอที่จับคู่แล้วอัตโนมัติเวลา 21:00 น.
+              </label>
+            </div>
+          </div>
+
           <!-- Settings Sub-tabs -->
           <div class="settings-subtabs no-print">
-            <button type="button" class="settings-subtab-btn active" id="btnSubTabTelegram" onclick="switchSettingsSubTab('subTabTelegram')">🤖 1. เชื่อมต่อ Telegram Bot & ค้นหา Chat ID</button>
+            <button type="button" class="settings-subtab-btn active" id="btnSubTabTelegram" onclick="switchSettingsSubTab('subTabTelegram')">🤖 1. เชื่อมต่อ Telegram Bot & คู่มือ</button>
             <button type="button" class="settings-subtab-btn" id="btnSubTabCloneApp" onclick="switchSettingsSubTab('subTabCloneApp')">📑 2. การทำสำเนาแอพ (Clone App)</button>
             <button type="button" class="settings-subtab-btn" id="btnSubTabConnHistory" onclick="switchSettingsSubTab('subTabConnHistory')">📡 3. สถานะการเชื่อมต่อ & ประวัติ</button>
             <button type="button" class="settings-subtab-btn" id="btnSubTabPermissions" onclick="switchSettingsSubTab('subTabPermissions')">🛡️ 4. การจัดการสิทธิ์ผู้ใช้งาน</button>
@@ -935,45 +1024,53 @@ function doPost(e) {
             <div class="card">
               <div class="card-header">
                 <div>
-                  <h2 class="card-title">🤖 การเชื่อมต่อ Bot Telegram แจ้งเตือนพัสดุและคำขอ</h2>
-                  <p class="card-desc">ตั้งค่า Bot Token และ Chat ID เพื่อแจ้งเตือนเข้ากลุ่มนิติบุคคลอัตโนมัติ (แสดงสาเหตุละเอียดเมื่อเกิด Error)</p>
+                  <h2 class="card-title">🤖 การเชื่อมต่อ Bot Telegram แจ้งเตือนพัสดุและคำขอ (Real API)</h2>
+                  <p class="card-desc">ส่งข้อความแจ้งเตือนเข้ากลุ่มนิติบุคคลผ่าน Telegram Bot API ทันทีเมื่อลูกบ้านส่งคำขอ</p>
                 </div>
-                <span class="badge badge-matched" id="tgStatusBadge">🟢 พร้อมใช้งาน Telegram Bot</span>
+                <span class="badge badge-matched" id="tgStatusBadge">🟢 พร้อมส่ง Telegram Bot</span>
               </div>
               <form onsubmit="handleSaveTelegramConfig(event)" style="background: var(--surface-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
                 <div class="form-grid">
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label" for="tgBotTokenInput">Telegram Bot Token <span class="req-star">*</span></label>
-                    <input type="text" id="tgBotTokenInput" class="input" placeholder="วาง Bot Token จาก @BotFather" required>
+                    <input type="text" id="tgBotTokenInput" class="input" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz" required>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label" for="tgChatIdInput">Telegram Chat ID / Group ID <span class="req-star">*</span></label>
-                    <div style="display:flex; gap:8px;">
-                      <input type="text" id="tgChatIdInput" class="input" placeholder="เช่น -100xxxxxxxxxx" required>
-                      <button type="button" class="btn btn-secondary btn-sm" style="white-space:nowrap;" onclick="handleDetectTelegramChatIds()">🔍 ค้นหา Chat ID</button>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                      <input type="text" id="tgChatIdInput" class="input" style="flex:1 1 180px;" placeholder="เช่น -1003472008445" required>
+                      <button type="button" id="btnFetchTgChats" class="btn btn-secondary btn-sm" onclick="handleFetchTelegramChatIds()">🔍 ดึง Chat ID อัตโนมัติ (Get Updates)</button>
                     </div>
                   </div>
                 </div>
-
-                <!-- Detected Telegram Chats Box -->
-                <div id="tgDetectedChatsBox" class="hidden" style="margin-top: 14px; padding: 14px; background: var(--bg); border: 1px solid var(--brand); border-radius: 10px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <strong style="color: var(--brand); font-size: 13.5px;">📋 รายการกลุ่ม / แชทที่ตรวจพบจากบอท (คลิก "เลือกใช้" เพื่อใส่ Chat ID ทันที):</strong>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('tgDetectedChatsBox').classList.add('hidden')">ปิด</button>
+                <!-- กล่องแสดงรายการ Chat ID ที่ดึงได้จาก /getUpdates -->
+                <div id="tgDiscoveredChatsBox" class="hidden" style="margin-top: 14px; padding: 14px; background: var(--surface); border: 1px solid var(--brand); border-radius: 10px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                    <strong style="font-size: 13.5px; color: var(--brand);">📋 รายการแชท/กลุ่มที่ตรวจพบล่าสุด (คลิกเพื่อเลือกใช้งาน):</strong>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('tgDiscoveredChatsBox').classList.add('hidden')">ปิด</button>
                   </div>
-                  <div id="tgDetectedChatsList"></div>
+                  <div id="tgDiscoveredChatsList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
                 </div>
-
                 <div style="margin-top: 14px;">
                   <label style="display:flex; align-items:center; gap: 8px; font-size:14px; font-weight:600; cursor:pointer;">
                     <input type="checkbox" id="tgEnableCheck" style="width:18px; height:18px;" checked> เปิดใช้งานการแจ้งเตือนผ่าน Telegram อัตโนมัติเมื่อมีคำขอใหม่
                   </label>
                 </div>
                 <div style="display:flex; justify-content:flex-end; gap: 10px; margin-top: 16px; flex-wrap:wrap;">
-                  <button type="button" class="btn btn-secondary" id="btnTestTgSend" onclick="handleTestTelegramConnection()">🔔 ทดสอบส่งข้อความจริงเข้า Telegram</button>
+                  <button type="button" id="btnTestTelegram" class="btn btn-secondary" onclick="handleTestTelegramConnection()">🔔 ทดสอบส่งข้อความจริงเข้า Telegram</button>
                   <button type="submit" class="btn btn-primary">💾 บันทึกการตั้งค่า Telegram Bot</button>
                 </div>
               </form>
+
+              <div class="guide-step-box">
+                <div class="guide-step-title">📖 คู่มือการสร้าง Telegram Bot และวิธีดึง Chat ID อัตโนมัติ</div>
+                <ol style="margin: 6px 0 0 18px; padding: 0; font-size: 13.5px; color: var(--ink-secondary); line-height: 1.7;">
+                  <li>เปิดแอป Telegram ค้นหา <strong>@BotFather</strong> พิมพ์ <code>/newbot</code> ตั้งชื่อบอทเพื่อรับ <strong>HTTP API Token</strong> แล้วนำมาวางในช่องด้านบน</li>
+                  <li><strong>กรณีแจ้งเตือนเข้ากลุ่ม:</strong> ดึงบอทเข้ากลุ่มนิติบุคคล (แนะนำตั้งเป็น Admin) แล้วพิมพ์ข้อความใดก็ได้ในกลุ่ม 1 ครั้ง (เช่น <code>สวัสดี</code>)</li>
+                  <li><strong>กรณีแจ้งเตือนส่วนตัว:</strong> ค้นหาชื่อบอทใน Telegram แล้วกดปุ่ม <strong>Start</strong></li>
+                  <li>กดปุ่ม <strong>"🔍 ดึง Chat ID อัตโนมัติ (Get Updates)"</strong> ด้านบน แล้วคลิกเลือกชื่อกลุ่ม/แชท ระบบจะกรอก Chat ID ให้ทันที</li>
+                </ol>
+              </div>
             </div>
           </div>
 
@@ -983,14 +1080,14 @@ function doPost(e) {
               <div class="card-header">
                 <div>
                   <h2 class="card-title">📑 การทำสำเนาแอพ (Clone Application)</h2>
-                  <p class="card-desc">สร้างไฟล์เว็บแอปสำเนาสำหรับอาคารอื่นหรือสาขาอื่นอย่างปลอดภัย</p>
+                  <p class="card-desc">สร้างไฟล์เว็บแอปสำเนา (.html) พร้อมฝังค่าตั้งค่าและลิงก์ Apps Script สำหรับอาคารอื่นหรือสาขาอื่น</p>
                 </div>
               </div>
               <div style="background: var(--surface-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
                 <div class="form-grid">
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label" for="cloneAppTitleInput">ชื่อระบบ / ชื่ออาคารสำหรับแอพสำเนา</label>
-                    <input type="text" id="cloneAppTitleInput" class="input" value="ระบบจัดการและแจ้งรับพัสดุภายในอาคาร (สาขาสำเนา)">
+                    <input type="text" id="cloneAppTitleInput" class="input" value="โครงการอาคารชุดนิติบุคคล (สาขาสำเนา)">
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label" for="cloneDataModeSelect">ตัวเลือกข้อมูลที่จะนำไปกับแอพสำเนา</label>
@@ -1002,19 +1099,19 @@ function doPost(e) {
                 </div>
                 <div style="margin-top: 16px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom: 8px;">
-                    <label class="form-label" for="cloneGasUrlInput" style="margin:0;">☁️ ลิงก์ Google Apps Script Web App URL (ไม่บังคับหากใช้ในเครื่อง)</label>
-                    <span class="badge badge-matched" id="cloneGasUrlSavedBadge">✅ พร้อมสร้างไฟล์สำเนา</span>
+                    <label class="form-label" for="cloneGasUrlInput" style="margin:0;">☁️ ลิงก์ Google Apps Script Web App URL <span class="req-star">*</span></label>
+                    <span class="badge badge-opt" id="cloneGasUrlSavedBadge">รอการยืนยันลิงก์</span>
                   </div>
                   <div style="display:flex; flex-wrap:wrap; gap: 8px; align-items:center;">
-                    <input type="text" id="cloneGasUrlInput" class="input" style="flex: 1 1 300px;" placeholder="วางลิงก์ Web App URL ที่ลงท้ายด้วย /exec (ถ้ามี)" oninput="handleDraftGasUrlInput(this.value)">
+                    <input type="text" id="cloneGasUrlInput" class="input" style="flex: 1 1 300px;" placeholder="วางลิงก์ Web App URL ที่ลงท้ายด้วย /exec" oninput="handleDraftGasUrlInput(this.value)">
                     <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveAndVerifyCloneGasUrl()">💾 บันทึก & ยืนยันลิงก์ Apps Script</button>
                   </div>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap: 12px; margin-top: 16px;">
-                  <span class="form-hint">ดาวน์โหลดไฟล์สำเนาพร้อมนำไปรันข้ามเครื่องได้ทันที</span>
+                  <span class="form-hint">ดาวน์โหลดไฟล์สำเนาพร้อมนำไปเปิดใช้งานข้ามเครื่องได้ทันที</span>
                   <div style="display:flex; gap: 8px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-secondary" onclick="handlePreviewClonedMode()">👁️ ทดสอบแสดงผลแบบแอพสำเนา</button>
-                    <button type="button" class="btn btn-primary" onclick="handleGenerateClonedAppFile()">📑 ดาวน์โหลดไฟล์แอพสำเนา (.html)</button>
+                    <button type="button" class="btn btn-secondary" onclick="handlePreviewClonedMode()">👁️ ทดสอบแสดงผลชื่ออาคารสำเนา</button>
+                    <button type="button" class="btn btn-primary" onclick="handleGenerateClonedAppFile()">📑 บันทึกลิงก์ & ดาวน์โหลดไฟล์แอพสำเนา (.html)</button>
                   </div>
                 </div>
               </div>
@@ -1027,7 +1124,7 @@ function doPost(e) {
               <div class="card-header">
                 <div>
                   <h2 class="card-title">📡 หน้าต่างแสดงการเชื่อมต่อและประวัติการทำเชื่อมต่อ</h2>
-                  <p class="card-desc">ตรวจสอบสถานะซิงค์ข้อมูลกับ Google Sheets และประวัติการแจ้งเตือน Telegram อย่างละเอียด</p>
+                  <p class="card-desc">ตรวจสอบสถานะซิงค์ข้อมูลกับ Google Sheets, Telegram Bot และประวัติกิจกรรมล่าสุด</p>
                 </div>
                 <div style="display:flex; gap: 8px; flex-wrap:wrap;">
                   <button type="button" class="btn btn-primary btn-sm" onclick="handleManualSyncCheck()">🔄 ทดสอบซิงค์และตรวจสอบทันที</button>
@@ -1038,16 +1135,16 @@ function doPost(e) {
                 <div class="conn-status-card">
                   <div style="display:flex; justify-content:space-between; align-items:center;">
                     <strong>☁️ Cloud / Google Sheets Sync</strong>
-                    <span class="badge badge-matched" id="connCardCloudBadge">พร้อมใช้งาน</span>
+                    <span class="badge badge-opt" id="connCardCloudBadge">โหมดออฟไลน์</span>
                   </div>
-                  <div style="font-size:13px; color:var(--muted);" id="connCardCloudDetail">ระบบป้องกันการเขียนทับข้อมูลเก่าทำงานอยู่</div>
+                  <div style="font-size:13px; color:var(--muted);" id="connCardCloudDetail">ยังไม่ได้ตั้งค่า Web App URL</div>
                 </div>
                 <div class="conn-status-card">
                   <div style="display:flex; justify-content:space-between; align-items:center;">
                     <strong>🤖 Telegram Bot Notification</strong>
                     <span class="badge badge-matched" id="connCardTelegramBadge">เปิดใช้งานแจ้งเตือน</span>
                   </div>
-                  <div style="font-size:13px; color:var(--muted);" id="connCardTelegramDetail">เชื่อมต่อ api.telegram.org</div>
+                  <div style="font-size:13px; color:var(--muted);" id="connCardTelegramDetail">บอทผูกกับแชทหลักเรียบร้อย</div>
                 </div>
               </div>
               <h3 style="margin: 16px 0 10px 0; font-size: 15px;">📜 ประวัติการทำเชื่อมต่อ (Connection History Log)</h3>
@@ -1066,7 +1163,7 @@ function doPost(e) {
               <div class="card-header">
                 <div>
                   <h2 class="card-title">🛡️ การจัดการสิทธิ์ผู้ใช้งานระบบหลังบ้าน (Access Control)</h2>
-                  <p class="card-desc">กำหนดสิทธิ์ของบัญชีเจ้าหน้าที่แต่ละระดับในการเข้าถึงและทำรายการข้อมูล</p>
+                  <p class="card-desc">ตรวจสอบและควบคุมสิทธิ์ของบัญชีเจ้าหน้าที่แต่ละระดับในการเข้าถึงระบบ</p>
                 </div>
               </div>
               <div class="table-wrap">
@@ -1105,10 +1202,10 @@ function doPost(e) {
   </main>
 
   <footer class="no-print" style="text-align: center; padding: 24px 0 32px; font-size: 13.5px; color: var(--muted); font-weight: 600;">
-    © 2026 APW.Gasie • ระบบบันทึกข้อมูลถาวร (Persistent Timestamp Protection)
+    © 2026 APW.Gasie • ระบบจัดการและแจ้งรับพัสดุนิติบุคคล
   </footer>
 
-  <!-- Modal -->
+  <!-- Custom Confirmation / Notice Modal -->
   <div class="modal-backdrop" id="customConfirmModal" role="dialog" aria-modal="true">
     <div class="modal-box">
       <h3 class="modal-title" id="modalTitleText">ยืนยันการทำรายการ</h3>
@@ -1120,24 +1217,95 @@ function doPost(e) {
     </div>
   </div>
 
-  <iframe id="printIsolatedIframe" style="display:none; width:1px; height:1px;"></iframe>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Isolated Print Iframe -->
+  <iframe id="printIsolatedIframe" style="display:none; width:1px; height:1px; border:none;"></iframe>
 
   <script>
-    const STORAGE_KEY = "juristic_parcel_app_v2_persistent";
+    // ==================== GLOBAL VARIABLES & STATE ====================
     let currentSlideIndex = 0;
+    let currentTickerIndex = 0;
     let isAdminAuthenticated = false;
     let dashboardFilterMode = "day";
     let slideTimer = null;
+    let tickerTimer = null;
+    let cloudSyncTimer = null;
     let isSlideshowHovered = false;
-    let isAutoSyncPaused = false;
-    let lastAutoCleared19Date = "";
-    let lastAutoCleared21Date = "";
 
-    function escapeHtml(str) {
-      return String(str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+    const appState = {
+      requests: [],
+      parcels: [],
+      houses: [
+        "62/0001", "62/0002", "62/0003", "62/0004", "62/0005",
+        "62/0006", "62/0007", "62/0008", "62/0009", "62/0010"
+      ],
+      locations: [
+        { id: "loc-1", name: "หน้าห้องนิติบุคคล / Office", requirePhone: false },
+        { id: "loc-2", name: "ใส่ตู้จดหมาย / Mailbox", requirePhone: false },
+        { id: "loc-3", name: "ฝากใส่ตู้ HIVE BOX", requirePhone: true }
+      ],
+      announcements: [
+        { id: "ann-default-1", title: "ยินดีต้อนรับสู่บริการแจ้งรับพัสดุออนไลน์", imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80" }
+      ],
+      textAnnouncements: [
+        { id: "txt-1", message: "📢 ประกาศจากนิติบุคคล: กรุณารับพัสดุภายใน 3 วันทำการ เพื่อความสะดวกในการจัดเก็บ" }
+      ],
+      admins: [
+        { id: "adm-1", username: "admin", password: "1234", displayName: "ผู้ดูแลระบบหลัก", role: "Super Admin", active: true }
+      ],
+      gasUrl: "",
+      projectName: "โครงการอาคารชุดนิติบุคคล",
+      slideshowSpeedMs: 5000,
+      isClonedInstance: false,
+      latestSubmittedRequest: null,
+      automation: {
+        autoClear1900: true,
+        autoCutoff2100: true,
+        lastClear1900Date: "",
+        lastCutoff2100Date: ""
+      },
+      telegram: {
+        botToken: "7691556293:AAE3lr_WwH5PE4h9S3UWUOP2HkUdmqX8qi4",
+        chatId: "-1003472008445",
+        enabled: true,
+        connected: true
+      },
+      connectionLogs: [],
+      reportHistory: []
+    };
+
+    // ==================== UTILITY FUNCTIONS ====================
+    function showToast(message, icon = "ℹ️") {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+      const item = document.createElement("div");
+      item.className = "toast-item";
+      item.innerHTML = `<span style="font-size:18px;">${icon}</span><span>${message}</span>`;
+      container.appendChild(item);
+      setTimeout(() => {
+        item.style.opacity = "0";
+        item.style.transform = "translateX(100%)";
+        item.style.transition = "all 0.25s ease";
+        setTimeout(() => item.remove(), 260);
+      }, 3200);
+    }
+
+    function addConnectionLog(channel, detail, success = true) {
+      if (!Array.isArray(appState.connectionLogs)) appState.connectionLogs = [];
+      appState.connectionLogs.unshift({
+        id: "log-" + Date.now() + Math.random(),
+        timestamp: `${getTodayDateString()} ${getCurrentTimeString()}`,
+        channel,
+        detail,
+        success
+      });
+      if (appState.connectionLogs.length > 50) {
+        appState.connectionLogs = appState.connectionLogs.slice(0, 50);
+      }
+      saveStateToStorage();
+      renderConnectionLogs();
     }
 
     function getLatestRequestsOnly(requestsList) {
@@ -1163,103 +1331,105 @@ function doPost(e) {
       return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
     }
 
-    const appState = {
-      lastUpdated: 0,
-      isClonedInstance: false,
-      requests: [],
-      parcels: [],
-      houses: [
-        "62/0001", "62/0002", "62/0003", "62/0004", "62/0005",
-        "62/0006", "62/0007", "62/0008", "62/0009", "62/0010"
-      ],
-      locations: [
-        { id: "loc-1", name: "หน้าห้องนิติบุคคล / Office", requirePhone: false },
-        { id: "loc-2", name: "ใส่ตู้จดหมาย / Mailbox", requirePhone: false },
-        { id: "loc-3", name: "ฝากใส่ตู้ HIVE BOX", requirePhone: true }
-      ],
-      announcements: [
-        { id: "ann-default-1", title: "ยินดีต้อนรับ", imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80" }
-      ],
-      textAnnouncements: [{ id: "txt-1", message: "📢 ประกาศจากนิติบุคคล: กรุณารับพัสดุภายใน 3 วันทำการ" }],
-      admins: [{ id: "adm-1", username: "admin", password: "1234", displayName: "ธุรการ", role: "Super Admin", active: true }],
-      gasUrl: "",
-      projectName: "โครงการอาคารชุดนิติบุคคล",
-      slideshowSpeedMs: 5000,
-      telegram: { botToken: "", chatId: "", enabled: true, connected: false },
-      connectionLogs: [],
-      reportHistory: [],
-      latestSubmittedRequest: null
-    };
-
-    function addConnectionLog(channel, detail, success = true) {
-      if (!Array.isArray(appState.connectionLogs)) appState.connectionLogs = [];
-      appState.connectionLogs.unshift({
-        id: "log-" + Date.now() + Math.random(),
-        timestamp: `${getTodayDateString()} ${getCurrentTimeString()}`,
-        channel,
-        detail,
-        success
-      });
-      if (appState.connectionLogs.length > 60) appState.connectionLogs.length = 60;
-      renderConnectionLogs();
-    }
-
+    // ==================== STORAGE & SYNC ====================
     function loadStateFromStorage() {
       try {
-        const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("juristic_parcel_app_v1");
+        const saved = localStorage.getItem("juristic_parcel_app_v1");
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed && typeof parsed === "object") {
-            Object.assign(appState, parsed);
-            if (!appState.telegram) appState.telegram = { botToken: "", chatId: "", enabled: true, connected: false };
-            updateLastSavedBadge();
-            return true;
+          Object.assign(appState, parsed);
+          if (!appState.automation) {
+            appState.automation = { autoClear1900: true, autoCutoff2100: true, lastClear1900Date: "", lastCutoff2100Date: "" };
           }
+          if (!appState.telegram) {
+            appState.telegram = { botToken: "", chatId: "", enabled: false, connected: false };
+          }
+          return true;
         }
       } catch (e) {
-        console.warn("Storage load warning:", e);
+        console.error("Failed to load state:", e);
       }
       return false;
     }
 
-    function saveStateToStorage(pushCloud = true) {
-      appState.lastUpdated = Date.now();
+    function saveStateToStorage() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-        updateLastSavedBadge();
+        localStorage.setItem("juristic_parcel_app_v1", JSON.stringify(appState));
       } catch (e) {
-        console.error("Storage save failed:", e);
-        showNoticeModal("พื้นที่จัดเก็บเต็ม", "ข้อมูลรูปภาพมีขนาดใหญ่เกินพื้นที่เบราว์เซอร์ กรุณาลบรูปภาพเก่าออกบางส่วน");
-      }
-      if (pushCloud && appState.gasUrl) {
-        pushStateToGoogleSheetsCloud(false);
+        showToast("หน่วยความจำเต็ม กรุณาลบภาพประกาศขนาดใหญ่บางส่วน", "⚠️");
       }
     }
 
-    function updateLastSavedBadge() {
-      const el = document.getElementById("lastSavedClockText");
-      if (!el) return;
-      if (appState.lastUpdated > 0) {
-        const d = new Date(appState.lastUpdated);
-        el.textContent = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-      } else {
-        el.textContent = "ยังไม่เคยแก้ไข";
+    // ==================== REAL-TIME CLOCK & AUTOMATION ====================
+    function startRealTimeClockAndAutomation() {
+      const updateClock = () => {
+        const now = new Date();
+        const timeStr = getCurrentTimeString();
+        const clockEl = document.getElementById("clockDisplay");
+        if (clockEl) clockEl.textContent = timeStr;
+
+        const today = getTodayDateString();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+
+        // 19:00 น. Auto-Clear Daily Parcels
+        if (appState.automation?.autoClear1900 && hours === 19 && minutes === 0 && appState.automation.lastClear1900Date !== today) {
+          appState.automation.lastClear1900Date = today;
+          runAutoClearParcels1900(false);
+        }
+
+        // 21:00 น. Auto-Cutoff Matched Requests
+        if (appState.automation?.autoCutoff2100 && hours === 21 && minutes === 0 && appState.automation.lastCutoff2100Date !== today) {
+          appState.automation.lastCutoff2100Date = today;
+          runAutoCutoff2100(false);
+        }
+      };
+      updateClock();
+      setInterval(updateClock, 1000);
+    }
+
+    function runAutoClearParcels1900(isManualTest = false) {
+      const count = appState.parcels.length;
+      if (count === 0 && isManualTest) {
+        showNoticeModal("ทดสอบระบบ 19:00 น.", "ไม่มีรายการพัสดุคงค้างให้เคลียร์ในขณะนี้");
+        return;
+      }
+      if (count > 0) {
+        appState.parcels = [];
+        reconcileRequestsAndParcels();
+        saveStateToStorage();
+        addConnectionLog("Automation (19:00)", `เคลียร์รายการพัสดุประจำวันอัตโนมัติจำนวน ${count} รายการ`, true);
+        renderAll();
+        if (isManualTest) showNoticeModal("ทดสอบสำเร็จ", `เคลียร์รายการพัสดุประจำวันจำนวน ${count} รายการเรียบร้อยแล้ว`);
+        else showToast(`ตัดรอบ 19:00 น.: เคลียร์พัสดุประจำวัน ${count} รายการแล้ว`, "⏰");
       }
     }
 
-    function toggleAutoSyncPause() {
-      isAutoSyncPaused = !isAutoSyncPaused;
-      const badge = document.getElementById("realSyncBadge");
-      const text = document.getElementById("realSyncText");
-      if (isAutoSyncPaused) {
-        badge.classList.add("paused");
-        text.textContent = "พักการซิงค์อัตโนมัติ (คลิกเพื่อเปิด)";
-      } else {
-        badge.classList.remove("paused");
-        text.textContent = "ซิงค์อัตโนมัติ (คลิกเพื่อพัก)";
+    function runAutoCutoff2100(isManualTest = false) {
+      reconcileRequestsAndParcels();
+      const matchedCount = appState.requests.filter(r => r.matched).length;
+      if (matchedCount === 0 && isManualTest) {
+        showNoticeModal("ทดสอบระบบ 21:00 น.", "ไม่มีคำขอที่จับคู่สำเร็จให้ตัดรอบในขณะนี้");
+        return;
+      }
+      if (matchedCount > 0) {
+        appState.requests = appState.requests.filter(r => !r.matched);
+        saveStateToStorage();
+        addConnectionLog("Automation (21:00)", `ตัดรอบคำขอที่จับคู่แล้วอัตโนมัติจำนวน ${matchedCount} รายการ`, true);
+        renderAll();
+        if (isManualTest) showNoticeModal("ทดสอบสำเร็จ", `ตัดรอบคำขอที่จับคู่แล้วจำนวน ${matchedCount} รายการเรียบร้อยแล้ว`);
+        else showToast(`ตัดรอบ 21:00 น.: ตัดรอบคำขอที่จับคู่แล้ว ${matchedCount} รายการ`, "⏰");
       }
     }
 
+    function handleToggleAutomationSettings() {
+      appState.automation.autoClear1900 = document.getElementById("autoClear1900Check").checked;
+      appState.automation.autoCutoff2100 = document.getElementById("autoCutoff2100Check").checked;
+      saveStateToStorage();
+      showToast("บันทึกการตั้งค่าตัดรอบอัตโนมัติแล้ว", "✅");
+    }
+
+    // ==================== CUSTOM MODAL ====================
     function showConfirmModal({ title, message, confirmText = "ยืนยัน", danger = false, hideCancel = false, onConfirm }) {
       const backdrop = document.getElementById("customConfirmModal");
       document.getElementById("modalTitleText").textContent = title;
@@ -1281,27 +1451,32 @@ function doPost(e) {
       document.getElementById("customConfirmModal").classList.remove("open");
     }
 
+    // ==================== HOUSE FORMATTING & PICKUP LOCATION ====================
     function formatHouseNumber(rawInput) {
       const cleaned = sanitizeInput(rawInput).replace(/\s+/g, "");
       if (!cleaned) return "";
       if (appState.houses.includes(cleaned)) return cleaned;
+
+      // ตรวจจับ prefix จากรายการบ้านเลขที่ที่มีอยู่ หรือใช้ 62/
+      let defaultPrefix = "62/";
+      let padLength = 4;
+      if (appState.houses.length > 0) {
+        const match = appState.houses[0].match(/^([^\/]+\/)(\d+)$/);
+        if (match) {
+          defaultPrefix = match[1];
+          padLength = match[2].length;
+        }
+      }
+
+      // กรณีพิมพ์ 62/1 -> แปลงเป็น 62/0001
       const slashMatch = cleaned.match(/^([^\/]+\/)(\d+)$/);
       if (slashMatch) {
-        const prefix = slashMatch[1];
-        const num = parseInt(slashMatch[2], 10);
-        const pad4 = prefix + String(num).padStart(4, "0");
-        if (appState.houses.includes(pad4)) return pad4;
-        const pad3 = prefix + String(num).padStart(3, "0");
-        if (appState.houses.includes(pad3)) return pad3;
-        return pad4;
+        return slashMatch[1] + String(parseInt(slashMatch[2], 10)).padStart(padLength, "0");
       }
+
+      // กรณีพิมพ์เฉพาะตัวเลข เช่น 1 -> 62/0001
       if (/^\d+$/.test(cleaned)) {
-        let defaultPrefix = "62/";
-        if (appState.houses.length > 0) {
-          const match = appState.houses[0].match(/^([^\/]+\/)/);
-          if (match) defaultPrefix = match[1];
-        }
-        return defaultPrefix + String(parseInt(cleaned, 10)).padStart(4, "0");
+        return defaultPrefix + String(parseInt(cleaned, 10)).padStart(padLength, "0");
       }
       return cleaned;
     }
@@ -1337,127 +1512,172 @@ function doPost(e) {
       }
     }
 
-    // ==================== TELEGRAM REAL API ====================
-    async function sendTelegramNotification(messageHtml) {
-      const token = (appState.telegram && appState.telegram.botToken || "").trim();
-      const chatId = (appState.telegram && appState.telegram.chatId || "").trim();
-      if (!token || !chatId) {
-        return { ok: false, error: "ยังไม่ได้ระบุ Bot Token หรือ Chat ID" };
+    // ==================== REAL TELEGRAM BOT API ====================
+    function escapeTelegramHtml(str) {
+      return String(str ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    async function handleFetchTelegramChatIds() {
+      const tokenInput = document.getElementById("tgBotTokenInput");
+      const token = sanitizeInput(tokenInput ? tokenInput.value : appState.telegram?.botToken);
+      if (!token) {
+        showNoticeModal("กรุณาระบุ Bot Token", "กรุณาวาง Telegram Bot Token จาก @BotFather ก่อนกดดึง Chat ID");
+        return;
       }
+
+      const btn = document.getElementById("btnFetchTgChats");
+      const box = document.getElementById("tgDiscoveredChatsBox");
+      const listEl = document.getElementById("tgDiscoveredChatsList");
+
+      if (btn) { btn.disabled = true; btn.textContent = "⏳ กำลังค้นหา..."; }
+
       try {
-        const res = await fetch(`https://api.telegram.org/bot${encodeURIComponent(token)}/sendMessage`, {
+        const res = await fetch(`https://api.telegram.org/bot${encodeURIComponent(token)}/getUpdates?limit=50`);
+        const data = await res.json();
+
+        if (!data.ok) {
+          addConnectionLog("Telegram Bot", `ดึง Chat ID ล้มเหลว (${res.status}): ${data.description || "Unauthorized"}`, false);
+          showNoticeModal(
+            `ไม่สามารถดึงข้อมูลได้ (Error ${res.status}) ❌`,
+            `สาเหตุจาก Telegram: ${data.description || "Bot Token ไม่ถูกต้อง"}\n\nกรุณาตรวจสอบ Bot Token ที่คัดลอกจาก @BotFather อีกครั้ง`
+          );
+          return;
+        }
+
+        const chatsMap = new Map();
+        (data.result || []).forEach(upd => {
+          const msgObj = upd.message || upd.edited_message || upd.channel_post || upd.my_chat_member;
+          const chat = msgObj?.chat;
+          if (chat && chat.id !== undefined) {
+            const chatTitle = chat.title || [chat.first_name, chat.last_name].filter(Boolean).join(" ") || chat.username || "Private Chat";
+            chatsMap.set(String(chat.id), {
+              id: String(chat.id),
+              title: chatTitle,
+              type: chat.type || "unknown"
+            });
+          }
+        });
+
+        const discovered = Array.from(chatsMap.values());
+        if (discovered.length === 0) {
+          addConnectionLog("Telegram Bot", "เรียก getUpdates สำเร็จ แต่ยังไม่พบประวัติข้อความในกลุ่ม/แชท", false);
+          showNoticeModal(
+            "ยังไม่พบข้อมูลแชทหรือกลุ่ม 🔍",
+            "บอทเชื่อมต่อได้ถูกต้อง แต่ยังไม่พบแชทล่าสุด กรุณาทำตามขั้นตอน:\n\n1. หากใช้ในกลุ่ม: ดึงบอทเข้ากลุ่ม แล้วพิมพ์ข้อความใดก็ได้ในกลุ่ม 1 ครั้ง (เช่น พิมพ์คำว่า test)\n2. หากใช้แชทส่วนตัว: เปิดแชทบอทแล้วกดปุ่ม Start\n\nจากนั้นกดปุ่ม '🔍 ดึง Chat ID อัตโนมัติ' อีกครั้ง"
+          );
+          return;
+        }
+
+        appState.telegram.botToken = token;
+        saveStateToStorage();
+
+        if (listEl && box) {
+          listEl.innerHTML = discovered.map(c => `
+            <button type="button" class="btn btn-secondary btn-sm" style="border-color: var(--brand); text-align:left;" onclick="selectDiscoveredTelegramChat('${c.id}', '${escapeTelegramHtml(c.title)}')">
+              <span>${c.type === "private" ? "👤" : "👥"} <strong>${escapeTelegramHtml(c.title)}</strong></span>
+              <code style="background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; color:var(--brand);">${c.id}</code>
+            </button>
+          `).join("");
+          box.classList.remove("hidden");
+        }
+        addConnectionLog("Telegram Bot", `ค้นพบแชท/กลุ่มที่เชื่อมต่อกับบอทจำนวน ${discovered.length} รายการ`, true);
+      } catch (err) {
+        addConnectionLog("Telegram Bot", `เกิดข้อผิดพลาดเครือข่ายขณะดึง Chat ID: ${err.message}`, false);
+        showNoticeModal("เกิดข้อผิดพลาดเครือข่าย ❌", `ไม่สามารถเชื่อมต่อ api.telegram.org ได้:\n${err.message}`);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "🔍 ดึง Chat ID อัตโนมัติ (Get Updates)"; }
+      }
+    }
+
+    function selectDiscoveredTelegramChat(chatId, chatTitle) {
+      const inp = document.getElementById("tgChatIdInput");
+      if (inp) inp.value = chatId;
+      appState.telegram.chatId = chatId;
+      saveStateToStorage();
+      showToast(`เลือก "${chatTitle}" (${chatId}) แล้ว`, "✅");
+    }
+
+    async function sendTelegramNotification(textMessage) {
+      const token = (appState.telegram?.botToken || "").trim();
+      const chatId = (appState.telegram?.chatId || "").trim();
+      if (!token || !chatId) {
+        return { ok: false, status: 0, error: "ยังไม่ได้ตั้งค่า Bot Token หรือ Chat ID" };
+      }
+
+      try {
+        const url = `https://api.telegram.org/bot${encodeURIComponent(token)}/sendMessage`;
+        const response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
-            text: messageHtml,
+            text: textMessage,
             parse_mode: "HTML"
           })
         });
-        const data = await res.json();
-        if (data.ok) {
+        const result = await response.json();
+        if (result.ok) {
           appState.telegram.connected = true;
-          addConnectionLog("Telegram Bot", `ส่งแจ้งเตือนสำเร็จไปยัง Chat ID: ${chatId}`, true);
-          return { ok: true, data };
+          addConnectionLog("Telegram Bot", `ส่งข้อความเข้าแชท ${chatId} สำเร็จ`, true);
+          return { ok: true, status: response.status };
         } else {
           appState.telegram.connected = false;
-          const errDesc = data.description || `HTTP ${res.status}`;
-          addConnectionLog("Telegram Bot", `ส่งไม่สำเร็จ (${res.status}): ${errDesc}`, false);
-          return { ok: false, status: res.status, error: errDesc };
+          const desc = result.description || "Telegram API Error";
+          addConnectionLog("Telegram Bot", `ส่งไม่สำเร็จ (${response.status}): ${desc}`, false);
+          return { ok: false, status: response.status, error: desc };
         }
       } catch (err) {
         appState.telegram.connected = false;
-        addConnectionLog("Telegram Bot", `เชื่อมต่อล้มเหลว: ${err.message}`, false);
-        return { ok: false, error: err.message };
+        addConnectionLog("Telegram Bot", `เกิดข้อผิดพลาดเครือข่าย: ${err.message}`, false);
+        return { ok: false, status: 0, error: err.message };
       }
-    }
-
-    async function handleDetectTelegramChatIds() {
-      const token = sanitizeInput(document.getElementById("tgBotTokenInput").value);
-      if (!token) {
-        showNoticeModal("กรุณากรอก Bot Token", "โปรดวาง Telegram Bot Token จาก @BotFather ก่อนกดค้นหา Chat ID");
-        return;
-      }
-      const box = document.getElementById("tgDetectedChatsBox");
-      const listEl = document.getElementById("tgDetectedChatsList");
-      box.classList.remove("hidden");
-      listEl.innerHTML = `<div style="font-size:13px; color:var(--muted);">⏳ กำลังดึงข้อมูลแชทล่าสุดจาก Telegram...</div>`;
-
-      try {
-        const res = await fetch(`https://api.telegram.org/bot${encodeURIComponent(token)}/getUpdates`);
-        const data = await res.json();
-        if (!data.ok) {
-          listEl.innerHTML = `<div style="color:var(--danger); font-size:13px;">❌ Telegram API Error (${res.status}): ${escapeHtml(data.description || "Token ไม่ถูกต้อง")}</div>`;
-          return;
-        }
-        const chatMap = {};
-        (data.result || []).forEach(upd => {
-          const msg = upd.message || upd.channel_post || upd.my_chat_member;
-          if (msg && msg.chat) {
-            chatMap[msg.chat.id] = {
-              id: msg.chat.id,
-              title: msg.chat.title || [msg.chat.first_name, msg.chat.last_name].filter(Boolean).join(" ") || "Private Chat",
-              type: msg.chat.type
-            };
-          }
-        });
-        const chats = Object.values(chatMap);
-        if (chats.length === 0) {
-          listEl.innerHTML = `<div style="font-size:13px; color:var(--warning);">⚠️ ยังไม่พบประวัติข้อความของบอทตัวนี้\n• หากส่งเข้ากลุ่ม: ให้ดึงบอทเข้ากลุ่ม แล้วพิมพ์ข้อความทักทายในกลุ่ม 1 ครั้ง จากนั้นกด "🔍 ค้นหา Chat ID" อีกครั้ง\n• หากส่งเข้าแชทส่วนตัว: ให้ทักแชทบอทแล้วกด Start จากนั้นกดค้นหาอีกครั้ง</div>`;
-          return;
-        }
-        listEl.innerHTML = chats.map(c => `\n          <div class="tg-chat-item">\n            <div>\n              <strong style="color:var(--ink);">${escapeHtml(c.title)}</strong> <span class="badge badge-opt">${escapeHtml(c.type)}</span>\n              <div style="font-size:12.5px; color:var(--brand); font-family:monospace;">Chat ID: ${c.id}</div>\n            </div>\n            <button type="button" class="btn btn-primary btn-sm" onclick="selectDetectedChatId('${c.id}')">✅ เลือกใช้ ID นี้</button>\n          </div>\n        `).join("");
-      } catch (e) {
-        listEl.innerHTML = `<div style="color:var(--danger); font-size:13px;">❌ เกิดข้อผิดพลาดในการเชื่อมต่อ: ${escapeHtml(e.message)}</div>`;
-      }
-    }
-
-    function selectDetectedChatId(chatId) {
-      document.getElementById("tgChatIdInput").value = chatId;
-      document.getElementById("tgDetectedChatsBox").classList.add("hidden");
-      showNoticeModal("เลือก Chat ID สำเร็จ", `ใส่ค่า Chat ID: ${chatId} เรียบร้อยแล้ว กรุณากด "บันทึกการตั้งค่า" และ "ทดสอบส่งข้อความ"`);
     }
 
     async function handleTestTelegramConnection() {
+      const btn = document.getElementById("btnTestTelegram");
       const token = sanitizeInput(document.getElementById("tgBotTokenInput").value);
       const chatId = sanitizeInput(document.getElementById("tgChatIdInput").value);
+
       if (!token || !chatId) {
-        showNoticeModal("ข้อมูลไม่ครบถ้วน", "กรุณาระบุทั้ง Bot Token และ Chat ID ก่อนทดสอบส่งข้อความ");
+        showNoticeModal("ข้อมูลไม่ครบ", "กรุณาระบุ Telegram Bot Token และ Chat ID ก่อนทดสอบ");
         return;
       }
+
       appState.telegram.botToken = token;
       appState.telegram.chatId = chatId;
-      saveStateToStorage(false);
+      saveStateToStorage();
 
-      const btn = document.getElementById("btnTestTgSend");
-      const origText = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = "⏳ กำลังส่งทดสอบ...";
+      if (btn) { btn.disabled = true; btn.textContent = "⏳ กำลังส่งข้อความทดสอบ..."; }
+      const msg =
+        `🔔 <b>ทดสอบการเชื่อมต่อสำเร็จ!</b>\n` +
+        `🏢 <b>โครงการ:</b> ${escapeTelegramHtml(appState.projectName)}\n` +
+        `⏰ <b>เวลา:</b> ${escapeTelegramHtml(getTodayDateString())} ${escapeTelegramHtml(getCurrentTimeString())}\n` +
+        `✅ ระบบพร้อมแจ้งเตือนคำขอรับพัสดุอัตโนมัติ`;
 
-      const msg = `🔔 <b>ทดสอบการเชื่อมต่อสำเร็จ!</b>\n🏢 โครงการ: ${escapeHtml(appState.projectName)}\n⏰ เวลา: ${getTodayDateString()} ${getCurrentTimeString()}`;
-      const result = await sendTelegramNotification(msg);
+      const res = await sendTelegramNotification(msg);
+      if (btn) { btn.disabled = false; btn.textContent = "🔔 ทดสอบส่งข้อความจริงเข้า Telegram"; }
 
-      btn.disabled = false;
-      btn.textContent = origText;
       renderAll();
-
-      if (result.ok) {
-        showNoticeModal("✅ ส่งข้อความเข้า Telegram สำเร็จ!", `บอทส่งข้อความทดสอบไปยัง Chat ID: ${chatId} เรียบร้อยแล้ว`);
+      if (res.ok) {
+        showNoticeModal("เชื่อมต่อ Telegram สำเร็จ ✅", "ส่งข้อความทดสอบไปยังกลุ่ม/แชท Telegram เรียบร้อยแล้ว!");
       } else {
-        let hint = "";
-        if (result.status === 401) {
-          hint = "
-
-💡 คำแนะนำ (Error 401): Bot Token ไม่ถูกต้องหรือถูกยกเลิก กรุณาตรวจสอบ Token จาก @BotFather อีกครั้ง";
-        } else if (result.status === 400) {
-          hint = "
-
-💡 คำแนะนำ (Error 400): Chat ID ไม่ถูกต้อง หรือยังไม่ได้เชิญบอทเข้ากลุ่ม (หากเป็นกลุ่ม Chat ID ต้องมีเครื่องหมายลบ - นำหน้า เช่น -100xxxxxxxxxx และต้องเชิญบอทเข้ากลุ่มก่อน)";
+        let hint = "กรุณาตรวจสอบ Bot Token และ Chat ID";
+        if (res.status === 401) {
+          hint = "Bot Token ไม่ถูกต้องหรือถูกยกเลิก กรุณาขอ Token ใหม่จาก @BotFather";
+        } else if (res.status === 400) {
+          hint = "Chat ID ไม่ถูกต้อง หรือยังไม่ได้เชิญบอทเข้ากลุ่ม / กด Start บอท (ลองกดปุ่ม '🔍 ดึง Chat ID อัตโนมัติ' เพื่อดึงเลขที่ถูกต้อง)";
         }
-        showNoticeModal("❌ ส่งข้อความ Telegram ไม่สำเร็จ", `สาเหตุจาก Telegram: ${result.error}${hint}`);
+        showNoticeModal(
+          `ส่งข้อความไม่สำเร็จ (HTTP ${res.status || "Error"}) ❌`,
+          `รายละเอียดจาก Telegram:\n"${res.error}"\n\nคำแนะนำแก้ไข:\n${hint}`
+        );
       }
     }
 
+    // ==================== USER REQUEST SUBMIT ====================
     async function handleUserRequestSubmit(e) {
       e.preventDefault();
       const errBox = document.getElementById("userFormError");
@@ -1466,6 +1686,7 @@ function doPost(e) {
       const houseInput = document.getElementById("reqHouseInput");
       const locSelect = document.getElementById("reqLocationSelect");
       const phoneInput = document.getElementById("reqPhoneInput");
+      const submitBtn = document.getElementById("btnSubmitUserReq");
 
       const formattedHouse = formatHouseNumber(houseInput.value);
       houseInput.value = formattedHouse;
@@ -1475,13 +1696,13 @@ function doPost(e) {
       const phoneVal = sanitizeInput(phoneInput.value);
 
       if (!formattedHouse || !selectedLocationName) {
-        errBox.textContent = "กรุณากรอกบ้านเลขที่และเลือกจุดรับพัสดุ";
+        errBox.textContent = "⚠️ กรุณากรอกบ้านเลขที่และเลือกจุดรับพัสดุ";
         errBox.classList.remove("hidden");
         return;
       }
 
       if (locObj && isPhoneRequiredForLocation(locObj) && !phoneVal) {
-        errBox.textContent = `จุดรับ "${selectedLocationName}" บังคับกรอกเบอร์โทรศัพท์`;
+        errBox.textContent = `⚠️ จุดรับ "${selectedLocationName}" บังคับกรอกเบอร์โทรศัพท์ติดต่อ`;
         errBox.classList.remove("hidden");
         return;
       }
@@ -1498,8 +1719,8 @@ function doPost(e) {
 
       appState.requests.unshift(newReq);
       reconcileRequestsAndParcels();
-      appState.latestSubmittedRequest = newReq;
-      saveStateToStorage(true);
+      appState.latestSubmittedRequest = { ...newReq };
+      saveStateToStorage();
       renderAll();
 
       houseInput.value = "";
@@ -1507,12 +1728,44 @@ function doPost(e) {
       phoneInput.value = "";
       handlePickupLocationChange();
 
-      // Send Telegram Alert if enabled
-      if (appState.telegram && appState.telegram.enabled && appState.telegram.botToken && appState.telegram.chatId) {
-        const matchedCount = appState.parcels.filter(p => p.house === newReq.house).length;
-        const statusLine = matchedCount > 0 ? `✅ พบพัสดุในระบบแล้ว (${matchedCount} ชิ้น)` : `⏳ ยังไม่พบพัสดุรับเข้าในระบบ`;
-        const tgMsg = `📦 <b>คำขอแจ้งรับพัสดุใหม่</b>\n🏢 ${escapeHtml(appState.projectName)}\n🏠 บ้านเลขที่: <b>${escapeHtml(newReq.house)}</b>\n📍 จุดรับ: ${escapeHtml(newReq.locationName)}\n📞 เบอร์โทร: ${escapeHtml(newReq.phone)}\n⏰ เวลา: ${newReq.date} ${newReq.time}\n📌 สถานะ: ${statusLine}`;
-        sendTelegramNotification(tgMsg);
+      // ส่งแจ้งเตือน Telegram จริง (แปลงอักขระ HTML ปลอดภัย 100%)
+      const tgBadge = document.getElementById("latestTgStatusBadge");
+      if (appState.telegram?.enabled && appState.telegram?.botToken && appState.telegram?.chatId) {
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "⏳ กำลังส่งแจ้งเตือน Telegram..."; }
+        const matchedParcels = appState.parcels.filter(p => p.house === newReq.house);
+        const parcelStatusText = matchedParcels.length > 0
+          ? `✅ มีพัสดุในระบบแล้ว (${matchedParcels.length} ชิ้น: ${escapeTelegramHtml(matchedParcels.map(p => p.carrier).join(", "))})`
+          : `⏳ ยังไม่พบรายการพัสดุในระบบ`;
+
+        const tgMsg =
+          `📦 <b>มีคำขอแจ้งรับพัสดุใหม่!</b>\n` +
+          `🏢 <b>โครงการ:</b> ${escapeTelegramHtml(appState.projectName)}\n` +
+          `🏠 <b>บ้านเลขที่:</b> <code>${escapeTelegramHtml(newReq.house)}</code>\n` +
+          `📍 <b>จุดรับพัสดุ:</b> ${escapeTelegramHtml(newReq.locationName)}\n` +
+          `📞 <b>เบอร์โทร:</b> ${escapeTelegramHtml(newReq.phone)}\n` +
+          `🕒 <b>เวลาแจ้ง:</b> ${escapeTelegramHtml(newReq.date)} ${escapeTelegramHtml(newReq.time)}\n` +
+          `📋 <b>สถานะพัสดุ:</b> ${parcelStatusText}`;
+
+        const tgRes = await sendTelegramNotification(tgMsg);
+        if (tgBadge) {
+          tgBadge.classList.remove("hidden");
+          tgBadge.className = tgRes.ok ? "badge badge-matched" : "badge badge-unmatched";
+          tgBadge.textContent = tgRes.ok ? "🤖 แจ้งเตือน Telegram สำเร็จ" : `⚠️ Telegram (${tgRes.status || "Err"})`;
+        }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "🚀 ส่งคำขอรับพัสดุ (Auto-Sync & แจ้งเตือน)"; }
+      } else if (tgBadge) {
+        tgBadge.classList.add("hidden");
+      }
+
+      // ซิงค์ขึ้น Google Sheets Cloud อัตโนมัติ (ถ้าตั้งค่า URL ไว้)
+      const syncBadge = document.getElementById("latestSyncStatusBadge");
+      if (appState.gasUrl) {
+        const cloudOk = await pushStateToGoogleSheetsCloud(false);
+        if (syncBadge) {
+          syncBadge.textContent = cloudOk ? "☁️ ซิงค์ขึ้น Cloud แล้ว" : "💾 บันทึกในเครื่องแล้ว";
+        }
+      } else if (syncBadge) {
+        syncBadge.textContent = "💾 บันทึกในเครื่องแล้ว";
       }
     }
 
@@ -1525,17 +1778,52 @@ function doPost(e) {
         return;
       }
       box.classList.remove("hidden");
-      content.innerHTML = `\n        <div><strong>บ้านเลขที่:</strong> ${escapeHtml(latest.house)}</div>\n        <div><strong>จุดรับพัสดุ:</strong> ${escapeHtml(latest.locationName)}</div>\n        <div><strong>เบอร์โทรศัพท์:</strong> ${escapeHtml(latest.phone)}</div>\n        <div><strong>เวลาที่ส่งคำขอ:</strong> ${latest.date} ${latest.time}</div>\n        <div><strong>สถานะ:</strong> ${latest.matched ? "✅ พบพัสดุแล้ว" : "⏳ รอตรวจสอบ"}</div>\n      `;
+      content.innerHTML = `
+        <div><strong>บ้านเลขที่:</strong> ${latest.house}</div>
+        <div><strong>จุดรับพัสดุ:</strong> ${latest.locationName}</div>
+        <div><strong>เบอร์โทรศัพท์:</strong> ${latest.phone}</div>
+        <div><strong>เวลาที่ส่งคำขอ:</strong> ${latest.date} ${latest.time}</div>
+        <div><strong>สถานะ:</strong> ${latest.matched ? "✅ พบพัสดุแล้วพร้อมจ่าย" : "⏳ รอเจ้าหน้าที่ตรวจสอบ"}</div>
+      `;
     }
 
-    // ==================== SLIDESHOW & TICKER ====================
+    // ==================== SLIDESHOW & TEXT TICKER ====================
     function runSlideshowInterval() {
       clearInterval(slideTimer);
       const intervalSpeed = parseInt(appState.slideshowSpeedMs, 10);
       if (isNaN(intervalSpeed) || intervalSpeed <= 0) return;
       slideTimer = setInterval(() => {
-        if (!isSlideshowHovered) changeSlide(1);
+        if (!isSlideshowHovered && appState.announcements.length > 1) changeSlide(1);
       }, intervalSpeed);
+    }
+
+    function runTextTickerInterval() {
+      clearInterval(tickerTimer);
+      tickerTimer = setInterval(() => {
+        if (appState.textAnnouncements.length > 1) {
+          currentTickerIndex = (currentTickerIndex + 1) % appState.textAnnouncements.length;
+          renderTextTicker();
+        }
+      }, 4500);
+    }
+
+    function renderTextTicker() {
+      const tickerText = document.getElementById("userAnnouncementTickerText");
+      const tickerCard = document.getElementById("userAnnouncementTickerCard");
+      const counterBadge = document.getElementById("tickerCounterBadge");
+      if (!tickerText || !tickerCard) return;
+
+      const list = appState.textAnnouncements || [];
+      if (list.length === 0) {
+        tickerCard.classList.add("hidden");
+        return;
+      }
+      tickerCard.classList.remove("hidden");
+      if (currentTickerIndex >= list.length) currentTickerIndex = 0;
+      tickerText.textContent = list[currentTickerIndex].message;
+      if (counterBadge) {
+        counterBadge.textContent = list.length > 1 ? `ประกาศ ${currentTickerIndex + 1}/${list.length}` : "";
+      }
     }
 
     function handleSlideshowHover(h) { isSlideshowHovered = h; }
@@ -1550,6 +1838,7 @@ function doPost(e) {
     function renderSlideshow() {
       const emptyEl = document.getElementById("slideEmptyState");
       const imgEl = document.getElementById("slideImageEl");
+      const capEl = document.getElementById("slideCaptionEl");
       const prevBtn = document.getElementById("slidePrevBtn");
       const nextBtn = document.getElementById("slideNextBtn");
       const dotsEl = document.getElementById("slideDotsContainer");
@@ -1558,6 +1847,7 @@ function doPost(e) {
       if (list.length === 0) {
         emptyEl.classList.remove("hidden");
         imgEl.classList.add("hidden");
+        if (capEl) capEl.classList.add("hidden");
         prevBtn.classList.add("hidden");
         nextBtn.classList.add("hidden");
         dotsEl.classList.add("hidden");
@@ -1570,11 +1860,20 @@ function doPost(e) {
       imgEl.alt = current.title || "ภาพประกาศ";
       imgEl.classList.remove("hidden");
 
+      if (capEl) {
+        if (current.title) {
+          capEl.textContent = current.title;
+          capEl.classList.remove("hidden");
+        } else {
+          capEl.classList.add("hidden");
+        }
+      }
+
       if (list.length > 1) {
         prevBtn.classList.remove("hidden");
         nextBtn.classList.remove("hidden");
         dotsEl.classList.remove("hidden");
-        dotsEl.innerHTML = list.map((_, idx) => `<button type="button" class="slide-dot ${idx === currentSlideIndex ? "active" : ""}" onclick="goToSlide(${idx})"></button>`).join("");
+        dotsEl.innerHTML = list.map((_, idx) => `<button type="button" class="slide-dot ${idx === currentSlideIndex ? "active" : ""}" onclick="goToSlide(${idx})" aria-label="สไลด์ ${idx+1}"></button>`).join("");
       } else {
         prevBtn.classList.add("hidden");
         nextBtn.classList.add("hidden");
@@ -1582,34 +1881,7 @@ function doPost(e) {
       }
     }
 
-    function compressImageDataUrl(file, maxWidth = 1200, quality = 0.78) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement("canvas");
-            let w = img.width;
-            let h = img.height;
-            if (w > maxWidth) {
-              h = Math.round((h * maxWidth) / w);
-              w = maxWidth;
-            }
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL("image/jpeg", quality));
-          };
-          img.onerror = reject;
-          img.src = evt.target.result;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // ==================== PARCELS & REQUESTS RECONCILIATION ====================
+    // ==================== RECONCILIATION & PARCELS ====================
     function reconcileRequestsAndParcels() {
       const parcelHousesSet = new Set(appState.parcels.map(p => p.house));
       appState.requests.forEach(req => {
@@ -1640,13 +1912,16 @@ function doPost(e) {
       if (editId) {
         const idx = appState.parcels.findIndex(p => p.id === editId);
         if (idx !== -1) appState.parcels[idx] = { ...appState.parcels[idx], house, carrier, recipient, date };
+        showToast("แก้ไขข้อมูลพัสดุแล้ว", "✅");
       } else {
         appState.parcels.unshift({ id: "pcl-" + Date.now(), house, carrier, recipient, date });
+        showToast(`เพิ่มพัสดุบ้าน ${house} แล้ว`, "📦");
       }
       resetSingleParcelForm();
       reconcileRequestsAndParcels();
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
+      if (appState.gasUrl) pushStateToGoogleSheetsCloud(false);
     }
 
     function editSingleParcel(id) {
@@ -1674,13 +1949,14 @@ function doPost(e) {
     function deleteSingleParcel(id) {
       showConfirmModal({
         title: "ยืนยันการลบพัสดุ",
-        message: "ต้องการลบพัสดุนี้ใช่หรือไม่?",
+        message: "ต้องการลบรายการพัสดุนี้ใช่หรือไม่?",
         danger: true,
         onConfirm: () => {
           appState.parcels = appState.parcels.filter(p => p.id !== id);
           reconcileRequestsAndParcels();
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
+          showToast("ลบรายการพัสดุแล้ว", "🗑️");
         }
       });
     }
@@ -1696,22 +1972,31 @@ function doPost(e) {
           const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
           let added = 0;
           rows.forEach(r => {
-            const house = formatHouseNumber(r["บ้านเลขที่"] || r["House"] || Object.values(r)[0]);
-            const carrier = sanitizeInput(r["เลขอ้างอิง"] || r["Reference"] || Object.values(r)[1]);
-            const recipient = sanitizeInput(r["ประเภทพัสดุ"] || Object.values(r)[2]) || "กล่องพัสดุ";
-            if (house && carrier) {
-              if (!isDuplicateParcelEntry(house, carrier)) {
-                appState.parcels.push({ id: "pcl-" + Date.now() + Math.random(), house, carrier, recipient, date: getTodayDateString() });
-                added++;
-              }
+            const vals = Object.values(r);
+            const rawHouse = r["บ้านเลขที่"] || r["House"] || vals[0];
+            const rawCarrier = r["เลขอ้างอิง"] || r["Tracking"] || r["Reference"] || vals[1];
+            const rawType = r["ประเภทพัสดุ"] || r["Type"] || vals[2];
+            const house = formatHouseNumber(rawHouse);
+            const carrier = sanitizeInput(rawCarrier);
+            const recipient = sanitizeInput(rawType) || "กล่องพัสดุ";
+            if (house && carrier && !isDuplicateParcelEntry(house, carrier)) {
+              appState.parcels.push({
+                id: "pcl-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+                house,
+                carrier,
+                recipient,
+                date: getTodayDateString()
+              });
+              added++;
             }
           });
           reconcileRequestsAndParcels();
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
-          showNoticeModal("นำเข้าสำเร็จ", `นำเข้าพัสดุใหม่ ${added} รายการ`);
+          if (appState.gasUrl) pushStateToGoogleSheetsCloud(false);
+          showNoticeModal("นำเข้าพัสดุสำเร็จ ✅", `นำเข้ารายการพัสดุใหม่ทั้งหมด ${added} รายการเรียบร้อยแล้ว`);
         } catch (e) {
-          showNoticeModal("ข้อผิดพลาด", "ไม่สามารถอ่านไฟล์ Excel ได้");
+          showNoticeModal("ข้อผิดพลาด", "ไม่สามารถอ่านไฟล์ Excel/CSV ได้ กรุณาตรวจสอบรูปแบบไฟล์");
         }
         event.target.value = "";
       };
@@ -1719,7 +2004,11 @@ function doPost(e) {
     }
 
     function downloadParcelTemplate() {
-      const wsData = [["บ้านเลขที่", "เลขอ้างอิง", "ประเภทพัสดุ"], ["62/0001", "6911-00012", "กล่องพัสดุ"]];
+      const wsData = [
+        ["บ้านเลขที่", "เลขอ้างอิง", "ประเภทพัสดุ"],
+        ["62/0001", "TH0123456789", "กล่องพัสดุ"],
+        ["62/0002", "SPX987654321", "ซองเอกสาร"]
+      ];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "ParcelTemplate");
@@ -1730,12 +2019,12 @@ function doPost(e) {
       reconcileRequestsAndParcels();
       const unmatchedList = appState.requests.filter(r => !r.matched);
       if (unmatchedList.length === 0) {
-        showNoticeModal("ไม่มีรายการ", "ไม่มีรายการตกค้าง");
+        showNoticeModal("ไม่มีรายการ", "ไม่มีรายการคำขอที่ยังไม่มีพัสดุตกค้างในระบบ");
         return;
       }
       showConfirmModal({
-        title: "ส่งออกรายงาน & เคลียร์คำขอ",
-        message: `ต้องการส่งออกและเคลียร์คำขอที่ไม่มีพัสดุจำนวน ${unmatchedList.length} รายการ?`,
+        title: "ส่งออกรายงาน & เคลียร์คำขอที่ไม่มีพัสดุ",
+        message: `ต้องการส่งออกเป็นไฟล์ Excel และลบคำขอที่ไม่มีพัสดุจำนวน ${unmatchedList.length} รายการออกจากระบบใช่หรือไม่?`,
         confirmText: "ส่งออก & เคลียร์",
         onConfirm: () => {
           const aoa = [["บ้านเลขที่", "สถานที่แจ้งรับ", "เบอร์โทร", "เวลาแจ้ง"]];
@@ -1746,12 +2035,14 @@ function doPost(e) {
           XLSX.writeFile(wb, `Unmatched_Requests_${getTodayDateString()}.xlsx`);
 
           appState.requests = appState.requests.filter(r => r.matched);
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
+          showToast("ส่งออกและเคลียร์คำขอที่ไม่มีพัสดุแล้ว", "✅");
         }
       });
     }
 
+    // ==================== REQUESTS MANAGEMENT ====================
     function isDuplicateRequestEntry(date, house, locationName) {
       return appState.requests.some(r => r.date === date && r.house === house && r.locationName === locationName);
     }
@@ -1768,12 +2059,14 @@ function doPost(e) {
       if (editId) {
         const idx = appState.requests.findIndex(r => r.id === editId);
         if (idx !== -1) appState.requests[idx] = { ...appState.requests[idx], house, locationName, phone, date };
+        showToast("แก้ไขคำขอแล้ว", "✅");
       } else {
         appState.requests.unshift({ id: "req-" + Date.now(), house, locationName, phone, date, time: getCurrentTimeString(), matched: false });
+        showToast("เพิ่มรายการคำขอแล้ว", "✅");
       }
       resetSingleRequestForm();
       reconcileRequestsAndParcels();
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
     }
 
@@ -1783,7 +2076,7 @@ function doPost(e) {
       document.getElementById("editRequestId").value = req.id;
       document.getElementById("admReqHouseInput").value = req.house;
       document.getElementById("admReqLocationSelect").value = req.locationName;
-      document.getElementById("admReqPhoneInput").value = req.phone;
+      document.getElementById("admReqPhoneInput").value = req.phone === "-" ? "" : req.phone;
       document.getElementById("admReqDateInput").value = req.date;
       document.getElementById("saveReqBtn").textContent = "💾 บันทึกการแก้ไข";
       document.getElementById("cancelEditReqBtn").classList.remove("hidden");
@@ -1801,14 +2094,15 @@ function doPost(e) {
 
     function deleteSingleRequest(id) {
       showConfirmModal({
-        title: "ยืนยันการลบ",
-        message: "ต้องการลบคำขอนี้?",
+        title: "ยืนยันการลบคำขอ",
+        message: "ต้องการลบรายการคำขอนี้ใช่หรือไม่?",
         danger: true,
         onConfirm: () => {
           appState.requests = appState.requests.filter(r => r.id !== id);
           reconcileRequestsAndParcels();
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
+          showToast("ลบคำขอแล้ว", "🗑️");
         }
       });
     }
@@ -1824,21 +2118,23 @@ function doPost(e) {
           const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
           let added = 0;
           rows.forEach(r => {
-            const house = formatHouseNumber(r["บ้านเลขที่"] || r["House"] || Object.values(r)[0]);
-            const locationName = sanitizeInput(r["จุดรับพัสดุ"] || r["Location"] || Object.values(r)[1] || "หน้าห้องนิติบุคคล / Office");
-            const phone = sanitizeInput(r["เบอร์โทร"] || r["Phone"] || Object.values(r)[2] || "-");
-            const date = sanitizeInput(r["วันที่แจ้ง"] || Object.values(r)[3]) || getTodayDateString();
-            if (house && locationName) {
-              if (!isDuplicateRequestEntry(date, house, locationName)) {
-                appState.requests.push({ id: "req-" + Date.now() + Math.random(), house, locationName, phone, date, time: "08:00:00", matched: false });
-                added++;
-              }
+            const vals = Object.values(r);
+            const house = formatHouseNumber(r["บ้านเลขที่"] || r["House"] || vals[0]);
+            const locationName = sanitizeInput(r["จุดรับพัสดุ"] || r["Location"] || vals[1] || "หน้าห้องนิติบุคคล / Office");
+            const phone = sanitizeInput(r["เบอร์โทร"] || r["Phone"] || vals[2] || "-");
+            const date = sanitizeInput(r["วันที่แจ้ง"] || vals[3]) || getTodayDateString();
+            if (house && locationName && !isDuplicateRequestEntry(date, house, locationName)) {
+              appState.requests.push({
+                id: "req-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+                house, locationName, phone, date, time: getCurrentTimeString(), matched: false
+              });
+              added++;
             }
           });
           reconcileRequestsAndParcels();
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
-          showNoticeModal("นำเข้าคำขอสำเร็จ", `เพิ่มคำขอใหม่ ${added} รายการ`);
+          showNoticeModal("นำเข้าคำขอสำเร็จ ✅", `เพิ่มรายการคำขอใหม่ ${added} รายการ`);
         } catch (e) {
           showNoticeModal("ข้อผิดพลาด", "ไม่สามารถอ่านไฟล์ Excel คำขอได้");
         }
@@ -1867,17 +2163,18 @@ function doPost(e) {
     function handleDeleteAllMatchedRequests() {
       const count = appState.requests.filter(r => r.matched).length;
       if (count === 0) {
-        showNoticeModal("ไม่มีรายการ", "ไม่มีคำขอที่จับคู่แล้ว");
+        showNoticeModal("ไม่มีรายการ", "ไม่มีคำขอที่จับคู่สำเร็จแล้วในขณะนี้");
         return;
       }
       showConfirmModal({
-        title: "ยืนยันการลบ",
-        message: `ต้องการลบคำขอที่จับคู่แล้วจำนวน ${count} รายการ?`,
+        title: "ยืนยันการลบคำขอที่จับคู่แล้ว",
+        message: `ต้องการลบคำขอที่จับคู่สำเร็จแล้วจำนวน ${count} รายการใช่หรือไม่?`,
         danger: true,
         onConfirm: () => {
           appState.requests = appState.requests.filter(r => !r.matched);
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
+          showToast("ลบคำขอที่จับคู่แล้วทั้งหมดเรียบร้อย", "🗑️");
         }
       });
     }
@@ -1889,14 +2186,14 @@ function doPost(e) {
     function handlePrintSelectedRequestsAndClear() {
       const selected = document.querySelectorAll(".matched-house-select-chk:checked");
       if (selected.length === 0) {
-        showNoticeModal("ยังไม่ได้เลือก", "กรุณาเลือกบ้านเลขที่ที่ต้องการออกรายงาน");
+        showNoticeModal("ยังไม่ได้เลือกห้องชุด", "กรุณาติ๊กเลือกบ้านเลขที่ที่ต้องการออกรายงานในตารางด้านล่าง");
         return;
       }
       const houses = Array.from(selected).map(chk => chk.getAttribute("data-house"));
       showConfirmModal({
-        title: "ออกรายงานและล้างรายการ",
-        message: `สร้างรายงานสำหรับ ${houses.length} ห้อง และลบออกจากหน้าคำขอ?`,
-        confirmText: "ออกรายงาน & ลบ",
+        title: "ออกรายงานจ่ายพัสดุและตัดรายการออกจากคิว",
+        message: `สร้างใบรายงาน A4 สำหรับ ${houses.length} ห้องชุด และย้ายรายการออกจากคิวรอจ่ายใช่หรือไม่?`,
+        confirmText: "สร้างรายงาน A4",
         onConfirm: () => {
           const houseSet = new Set(houses);
           const frozenReqs = JSON.parse(JSON.stringify(appState.requests.filter(r => houseSet.has(r.house))));
@@ -1915,42 +2212,33 @@ function doPost(e) {
           appState.parcels = appState.parcels.filter(p => !houseSet.has(p.house));
 
           reconcileRequestsAndParcels();
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
           switchAdminTab("tabReportA4");
-          showNoticeModal("สำเร็จ", "สร้างรายงานเรียบร้อยแล้ว");
+          showToast("สร้างใบรายงาน A4 สำเร็จแล้ว", "🖨️");
         }
       });
     }
 
-    // ==================== A4 REPORT ====================
+    // ==================== A4 REPORT GENERATION & PRINT ====================
     function buildGroupedDispatchReportData(reportObj = null) {
       const nitiGroupKey = "หน้าห้องนิติบุคคล / Office";
       const groups = { [nitiGroupKey]: [] };
 
-      if (reportObj) {
-        const reqMap = {};
-        (reportObj.requests || []).forEach(r => { if (!reqMap[r.house]) reqMap[r.house] = r; });
-        (reportObj.parcels || []).forEach(p => {
-          const req = reqMap[p.house];
-          if (!req) return;
-          let g = req.locationName || nitiGroupKey;
-          if (g.includes("หน้าห้องนิติ")) g = nitiGroupKey;
-          if (!groups[g]) groups[g] = [];
-          groups[g].push({ house: p.house, carrier: p.carrier, recipient: p.recipient, phone: req.phone || "-" });
-        });
-      } else {
-        const reqMap = {};
-        getLatestRequestsOnly(appState.requests).forEach(r => { if (!reqMap[r.house]) reqMap[r.house] = r; });
-        appState.parcels.forEach(p => {
-          const req = reqMap[p.house];
-          if (!req) return;
-          let g = req.locationName || nitiGroupKey;
-          if (g.includes("หน้าห้องนิติ")) g = nitiGroupKey;
-          if (!groups[g]) groups[g] = [];
-          groups[g].push({ house: p.house, carrier: p.carrier, recipient: p.recipient, phone: req.phone || "-" });
-        });
-      }
+      const reqs = reportObj ? (reportObj.requests || []) : getLatestRequestsOnly(appState.requests);
+      const pcls = reportObj ? (reportObj.parcels || []) : appState.parcels;
+
+      const reqMap = {};
+      reqs.forEach(r => { if (!reqMap[r.house]) reqMap[r.house] = r; });
+
+      pcls.forEach(p => {
+        const req = reqMap[p.house];
+        if (!req) return;
+        let g = req.locationName || nitiGroupKey;
+        if (g.includes("หน้าห้องนิติ")) g = nitiGroupKey;
+        if (!groups[g]) groups[g] = [];
+        groups[g].push({ house: p.house, carrier: p.carrier, recipient: p.recipient, phone: req.phone || "-" });
+      });
 
       if (groups[nitiGroupKey].length === 0) delete groups[nitiGroupKey];
       Object.keys(groups).forEach(k => {
@@ -1963,19 +2251,64 @@ function doPost(e) {
       const { groups } = buildGroupedDispatchReportData(reportObj);
       const keys = Object.keys(groups);
       if (keys.length === 0) {
-        return `<div style="text-align:center; padding:40px; color:#64748b;">ยังไม่มีรายงานจ่ายพัสดุล่าสุด</div>`;
+        return `<div style="text-align:center; padding:40px; color:#64748b;">ยังไม่มีข้อมูลรายงานจ่ายพัสดุล่าสุด</div>`;
       }
 
-      let html = `<style>body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;margin:0;padding:16px;}.a4-table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:15px;}.a4-table th,.a4-table td{border:1px solid #000;padding:10px 12px;vertical-align:middle;}.a4-table th{background:#f1f5f9;font-weight:700;}</style>`;
+      const printDate = reportObj ? reportObj.timestamp : `${getTodayDateString()} ${getCurrentTimeString()}`;
+      let html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบรายงานจ่ายพัสดุ - ${appState.projectName}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+      <style>
+        body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;margin:0;padding:16px;}
+        .a4-page{page-break-after:always; margin-bottom:24px;}
+        .a4-page:last-child{page-break-after:auto;}
+        .a4-table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:14.5px;}
+        .a4-table th,.a4-table td{border:1px solid #000;padding:9px 11px;vertical-align:middle;}
+        .a4-table th{background:#f1f5f9;font-weight:700;text-align:left;}
+        @media print { body{padding:0;} @page{size:A4; margin:14mm;} }
+      </style></head><body>`;
+
       keys.forEach((loc, idx) => {
         const items = groups[loc];
-        html += `\n          <div style="page-break-after:always; margin-bottom:24px;">\n            <div style="text-align:center; margin-bottom:15px; border-bottom:2px solid #000; padding-bottom:8px;">\n              <div style="font-size:14px; font-weight:700;">🏢 ${escapeHtml(appState.projectName)}</div>\n              <h2 style="margin:4px 0; font-size:18px;">ใบรายงานจ่ายพัสดุประจำวัน</h2>\n              <div style="font-size:12px;">จุดส่งมอบ: <strong>${escapeHtml(loc)}</strong> | วันที่: ${reportObj ? reportObj.timestamp : getTodayDateString()} | แผ่นที่ ${idx+1}/${keys.length}</div>\n            </div>\n            <table class="a4-table">\n              <thead>\n                <tr><th style="width:8%; text-align:center;">ลำดับ</th><th style="width:22%;">บ้านเลขที่</th><th style="width:32%;">เลขอ้างอิง</th><th style="width:22%;">ประเภทพัสดุ</th><th style="width:16%; text-align:center;">ลายเซ็น</th></tr>\n              </thead>\n              <tbody>\n        `;
+        html += `
+          <div class="a4-page">
+            <div style="text-align:center; margin-bottom:14px; border-bottom:2px solid #000; padding-bottom:10px;">
+              <div style="font-size:15px; font-weight:700;">🏢 ${appState.projectName}</div>
+              <h2 style="margin:4px 0; font-size:20px;">ใบรายงานจ่ายพัสดุประจำวัน (Parcel Dispatch Sheet)</h2>
+              <div style="font-size:13px;">จุดส่งมอบ: <strong>${loc}</strong> | วันที่พิมพ์: ${printDate} | แผ่นที่ ${idx+1}/${keys.length}</div>
+            </div>
+            <table class="a4-table">
+              <thead>
+                <tr>
+                  <th style="width:7%; text-align:center;">ลำดับ</th>
+                  <th style="width:18%;">บ้านเลขที่</th>
+                  <th style="width:27%;">เลขอ้างอิง (5 ตัวท้าย)</th>
+                  <th style="width:20%;">ประเภทพัสดุ</th>
+                  <th style="width:14%;">เบอร์โทร</th>
+                  <th style="width:14%; text-align:center;">ลายเซ็นผู้รับ</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
         items.forEach((it, i) => {
-          const shortRef = it.carrier.length > 5 ? it.carrier.slice(-5) : it.carrier;
-          html += `<tr><td style="text-align:center;font-weight:700;">${i+1}</td><td><strong>${escapeHtml(it.house)}</strong></td><td><code style="font-weight:700;">${escapeHtml(shortRef)}</code></td><td>${escapeHtml(it.recipient)}</td><td style="height:40px;"></td></tr>`;
+          const shortRef = it.carrier.length > 5 ? `...${it.carrier.slice(-5)}` : it.carrier;
+          html += `
+            <tr>
+              <td style="text-align:center;font-weight:700;">${i+1}</td>
+              <td><strong>${it.house}</strong></td>
+              <td><code style="font-weight:700; font-size:14px;">${shortRef}</code> <span style="font-size:11px;color:#555;">(${it.carrier})</span></td>
+              <td>${it.recipient}</td>
+              <td>${it.phone}</td>
+              <td style="height:36px;"></td>
+            </tr>`;
         });
-        html += `</tbody></table></div>`;
+        html += `</tbody></table>
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-top:20px;">
+              <div>รวมพัสดุจุดนี้ทั้งหมด: <strong>${items.length} ชิ้น</strong></div>
+              <div>ลงชื่อเจ้าหน้าที่ผู้จ่ายพัสดุ: ....................................................</div>
+            </div>
+          </div>`;
       });
+      html += `</body></html>`;
       return html;
     }
 
@@ -1983,7 +2316,7 @@ function doPost(e) {
       const container = document.getElementById("a4ReportContainer");
       if (!container) return;
       if (!Array.isArray(appState.reportHistory) || appState.reportHistory.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:48px; color:#64748b;">ยังไม่มีข้อมูลไฟล์รายงาน</div>`;
+        container.innerHTML = `<div style="text-align:center; padding:48px; color:#64748b;">ยังไม่มีข้อมูลไฟล์รายงาน (กรุณาเลือกห้องชุดที่จับคู่แล้วในแท็บที่ 2 เพื่อสร้างรายงาน)</div>`;
         return;
       }
       container.innerHTML = buildA4ReportHTMLForHouses(appState.reportHistory[0]);
@@ -1993,10 +2326,20 @@ function doPost(e) {
       const tbody = document.getElementById("reportHistoryTbody");
       if (!tbody) return;
       if (!Array.isArray(appState.reportHistory) || appState.reportHistory.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีประวัติการพิมพ์</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีประวัติการพิมพ์รายงาน</td></tr>`;
         return;
       }
-      tbody.innerHTML = appState.reportHistory.map(r => `\n        <tr>\n          <td><strong>${r.timestamp}</strong></td>\n          <td style="text-align:center;font-weight:700;color:var(--brand);">${r.houses.length} ห้อง</td>\n          <td>${escapeHtml(r.houses.join(", "))}</td>\n          <td style="text-align:right;">\n            <button type="button" class="btn btn-primary btn-sm" onclick="printReportFromHistory('${r.id}')">📄 พิมพ์ PDF</button>\n            <button type="button" class="btn btn-danger btn-sm" onclick="deleteReportFromHistory('${r.id}')">ลบ</button>\n          </td>\n        </tr>\n      `).join("");
+      tbody.innerHTML = appState.reportHistory.map(r => `
+        <tr>
+          <td><strong>${r.timestamp}</strong></td>
+          <td style="text-align:center;font-weight:700;color:var(--brand);">${r.houses.length} ห้อง</td>
+          <td>${r.houses.join(", ")}</td>
+          <td style="text-align:right; white-space:nowrap;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="printReportFromHistory('${r.id}')">📄 พิมพ์ PDF</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="deleteReportFromHistory('${r.id}')">ลบ</button>
+          </td>
+        </tr>
+      `).join("");
     }
 
     function printReportFromHistory(id) {
@@ -2006,45 +2349,94 @@ function doPost(e) {
     }
 
     function deleteReportFromHistory(id) {
-      appState.reportHistory = appState.reportHistory.filter(i => i.id !== id);
-      saveStateToStorage(true);
-      renderAll();
+      showConfirmModal({
+        title: "ลบประวัติรายงาน",
+        message: "ต้องการลบประวัติการออกรายงานชุดนี้ใช่หรือไม่?",
+        danger: true,
+        onConfirm: () => {
+          appState.reportHistory = appState.reportHistory.filter(i => i.id !== id);
+          saveStateToStorage();
+          renderAll();
+        }
+      });
     }
 
     function handleClearAllReportHistory() {
-      appState.reportHistory = [];
-      saveStateToStorage(true);
-      renderAll();
+      if (appState.reportHistory.length === 0) return;
+      showConfirmModal({
+        title: "ล้างประวัติรายงานทั้งหมด",
+        message: "ต้องการล้างประวัติรายงานทั้งหมดใช่หรือไม่?",
+        danger: true,
+        onConfirm: () => {
+          appState.reportHistory = [];
+          saveStateToStorage();
+          renderAll();
+        }
+      });
     }
 
     function executeIsolatedPrint(html) {
       const iframe = document.getElementById("printIsolatedIframe");
       if (iframe) {
         const doc = iframe.contentDocument || iframe.contentWindow.document;
-        doc.open(); doc.write(html); doc.close();
-        setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 300);
+        doc.open();
+        doc.write(html);
+        doc.close();
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          } catch (e) {
+            const win = window.open("", "_blank");
+            if (win) { win.document.write(html); win.document.close(); win.print(); }
+          }
+        }, 350);
       }
     }
 
     function handlePrintLatestReport() {
-      if (appState.reportHistory.length > 0) printReportFromHistory(appState.reportHistory[0].id);
+      if (appState.reportHistory.length === 0) {
+        showNoticeModal("ไม่มีรายงาน", "ยังไม่มีรายงานล่าสุดให้พิมพ์");
+        return;
+      }
+      printReportFromHistory(appState.reportHistory[0].id);
+    }
+
+    function handleOpenPrintWindowLatest() {
+      if (appState.reportHistory.length === 0) {
+        showNoticeModal("ไม่มีรายงาน", "ยังไม่มีรายงานล่าสุดให้เปิด");
+        return;
+      }
+      const html = buildA4ReportHTMLForHouses(appState.reportHistory[0]);
+      const win = window.open("", "_blank");
+      if (win) {
+        win.document.write(html);
+        win.document.close();
+        setTimeout(() => win.print(), 400);
+      } else {
+        showNoticeModal("ป๊อปอัปถูกบล็อก", "กรุณาอนุญาต Pop-up หรือกดปุ่ม สั่งพิมพ์ / บันทึก A4 PDF");
+      }
     }
 
     function handleExportExcelLatestReport() {
-      if (appState.reportHistory.length === 0) return;
+      if (appState.reportHistory.length === 0) {
+        showNoticeModal("ไม่มีรายงาน", "ยังไม่มีรายงานล่าสุดให้ส่งออก");
+        return;
+      }
       const r = appState.reportHistory[0];
       const { groups } = buildGroupedDispatchReportData(r);
       const wb = XLSX.utils.book_new();
       Object.keys(groups).forEach(loc => {
-        const aoa = [["ลำดับ", "บ้านเลขที่", "เลขอ้างอิง", "ประเภท"]];
-        groups[loc].forEach((it, i) => aoa.push([i+1, it.house, it.carrier, it.recipient]));
+        const aoa = [["ลำดับ", "บ้านเลขที่", "เลขอ้างอิง", "ประเภทพัสดุ", "เบอร์โทร"]];
+        groups[loc].forEach((it, i) => aoa.push([i+1, it.house, it.carrier, it.recipient, it.phone]));
         const ws = XLSX.utils.aoa_to_sheet(aoa);
-        XLSX.utils.book_append_sheet(wb, ws, loc.substring(0, 25));
+        const safeSheetName = loc.replace(/[\\/?*[\]:]/g, "").substring(0, 28) || "Report";
+        XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
       });
       XLSX.writeFile(wb, `Dispatch_Report_${getTodayDateString()}.xlsx`);
     }
 
-    // ==================== LOCATIONS, HOUSES, ANNOUNCEMENTS, ADMINS ====================
+    // ==================== LOCATIONS & HOUSES ====================
     function handleSaveLocation(e) {
       e.preventDefault();
       const editId = document.getElementById("editLocationId").value;
@@ -2055,11 +2447,13 @@ function doPost(e) {
       if (editId) {
         const loc = appState.locations.find(l => l.id === editId);
         if (loc) { loc.name = name; loc.requirePhone = requirePhone; }
+        showToast("แก้ไขจุดรับพัสดุแล้ว", "✅");
       } else {
         appState.locations.push({ id: "loc-" + Date.now(), name, requirePhone });
+        showToast("เพิ่มจุดรับพัสดุใหม่แล้ว", "✅");
       }
       resetLocationForm();
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
     }
 
@@ -2082,9 +2476,16 @@ function doPost(e) {
     }
 
     function deleteLocation(id) {
-      appState.locations = appState.locations.filter(l => l.id !== id);
-      saveStateToStorage(true);
-      renderAll();
+      showConfirmModal({
+        title: "ลบจุดรับพัสดุ",
+        message: "ต้องการลบสถานที่รับพัสดุนี้ใช่หรือไม่?",
+        danger: true,
+        onConfirm: () => {
+          appState.locations = appState.locations.filter(l => l.id !== id);
+          saveStateToStorage();
+          renderAll();
+        }
+      });
     }
 
     function handleGenerateHouses(e) {
@@ -2093,7 +2494,16 @@ function doPost(e) {
       const start = parseInt(document.getElementById("genStart").value, 10);
       const end = parseInt(document.getElementById("genEnd").value, 10);
       const pad = parseInt(document.getElementById("genPad").value, 10);
-      const exclude = new Set(sanitizeInput(document.getElementById("genExclude").value).split(",").map(n => parseInt(n.trim(), 10)));
+      const exclude = new Set(sanitizeInput(document.getElementById("genExclude").value).split(",").map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n)));
+
+      if (end < start) {
+        showNoticeModal("ข้อมูลไม่ถูกต้อง", "เลขสิ้นสุดต้องมากกว่าหรือเท่ากับเลขเริ่มต้น");
+        return;
+      }
+      if (end - start > 5000) {
+        showNoticeModal("จำนวนมากเกินไป", "กรุณาสร้างครั้งละไม่เกิน 5,000 รายการ");
+        return;
+      }
 
       const gen = [];
       for (let i = start; i <= end; i++) {
@@ -2101,41 +2511,88 @@ function doPost(e) {
         const numStr = pad > 0 ? String(i).padStart(pad, "0") : String(i);
         gen.push(`${prefix}${numStr}`);
       }
-      appState.houses = Array.from(new Set([...appState.houses, ...gen]));
-      saveStateToStorage(true);
+      appState.houses = Array.from(new Set([...appState.houses, ...gen])).sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
+      saveStateToStorage();
       renderAll();
-      showNoticeModal("สำเร็จ", `สร้างบ้านเลขที่รวม ${appState.houses.length} หลัง`);
+      showNoticeModal("สร้างบ้านเลขที่สำเร็จ ✅", `สร้างและรวมรายการบ้านเลขที่ทั้งหมด ${appState.houses.length} หลัง`);
     }
 
     function removeSingleHouse(h) {
       appState.houses = appState.houses.filter(i => i !== h);
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
+    }
+
+    function handleClearAllHouses() {
+      showConfirmModal({
+        title: "ล้างรายการบ้านเลขที่ทั้งหมด",
+        message: "ต้องการลบรายการบ้านเลขที่ทั้งหมดในระบบใช่หรือไม่?",
+        danger: true,
+        onConfirm: () => {
+          appState.houses = [];
+          saveStateToStorage();
+          renderAll();
+        }
+      });
+    }
+
+    // ==================== ANNOUNCEMENTS & IMAGE COMPRESSION ====================
+    function compressImageFile(file, maxWidth = 1200, quality = 0.78) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          };
+          img.onerror = reject;
+          img.src = evt.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
     }
 
     async function handleAddAnnouncement(e) {
       e.preventDefault();
       const editId = document.getElementById("editAnnouncementId").value;
-      const title = sanitizeInput(document.getElementById("annTitleInput").value) || "ประกาศ";
+      const title = sanitizeInput(document.getElementById("annTitleInput").value) || "ประกาศนิติบุคคล";
       const url = sanitizeInput(document.getElementById("annUrlInput").value);
       const file = document.getElementById("annFileInput").files[0];
 
       const save = (imgUrl) => {
+        if (!imgUrl && !editId) {
+          showNoticeModal("กรุณาระบุรูปภาพ", "กรุณาวางลิงก์รูปภาพ หรือเลือกไฟล์รูปภาพอัปโหลด");
+          return;
+        }
         if (editId) {
           const ann = appState.announcements.find(a => a.id === editId);
           if (ann) { ann.title = title; if (imgUrl) ann.imageUrl = imgUrl; }
+          showToast("แก้ไขภาพประกาศแล้ว", "✅");
         } else {
-          appState.announcements.push({ id: "ann-" + Date.now(), title, imageUrl: imgUrl || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200" });
+          appState.announcements.push({ id: "ann-" + Date.now(), title, imageUrl: imgUrl });
+          showToast("เพิ่มภาพประกาศแล้ว", "🖼️");
         }
         resetAnnouncementForm();
-        saveStateToStorage(true);
+        saveStateToStorage();
         renderAll();
       };
 
       if (file) {
         try {
-          const compressed = await compressImageDataUrl(file, 1200, 0.78);
-          save(compressed);
+          const compressedDataUrl = await compressImageFile(file);
+          save(compressedDataUrl);
         } catch (err) {
           showNoticeModal("ข้อผิดพลาด", "ไม่สามารถประมวลผลไฟล์รูปภาพได้");
         }
@@ -2149,7 +2606,7 @@ function doPost(e) {
       if (!ann) return;
       document.getElementById("editAnnouncementId").value = ann.id;
       document.getElementById("annTitleInput").value = ann.title;
-      document.getElementById("annUrlInput").value = ann.imageUrl;
+      document.getElementById("annUrlInput").value = ann.imageUrl.startsWith("data:") ? "" : ann.imageUrl;
       document.getElementById("saveAnnBtn").textContent = "💾 บันทึกแก้ไข";
       document.getElementById("cancelAnnEditBtn").classList.remove("hidden");
     }
@@ -2164,9 +2621,16 @@ function doPost(e) {
     }
 
     function deleteAnnouncement(id) {
-      appState.announcements = appState.announcements.filter(a => a.id !== id);
-      saveStateToStorage(true);
-      renderAll();
+      showConfirmModal({
+        title: "ลบภาพประกาศ",
+        message: "ต้องการลบภาพประกาศนี้ใช่หรือไม่?",
+        danger: true,
+        onConfirm: () => {
+          appState.announcements = appState.announcements.filter(a => a.id !== id);
+          saveStateToStorage();
+          renderAll();
+        }
+      });
     }
 
     function moveAnnouncementOrder(id, dir) {
@@ -2176,14 +2640,15 @@ function doPost(e) {
       const tmp = appState.announcements[idx];
       appState.announcements[idx] = appState.announcements[target];
       appState.announcements[target] = tmp;
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
     }
 
     function handleSlideshowSpeedChange() {
       appState.slideshowSpeedMs = parseInt(document.getElementById("slideshowSpeedSelect").value, 10);
-      saveStateToStorage(true);
+      saveStateToStorage();
       runSlideshowInterval();
+      showToast("อัปเดตความเร็วสไลด์โชว์แล้ว", "⚙️");
     }
 
     function handleSaveTextAnnouncement(e) {
@@ -2195,11 +2660,13 @@ function doPost(e) {
       if (editId) {
         const item = appState.textAnnouncements.find(t => t.id === editId);
         if (item) item.message = message;
+        showToast("แก้ไขข้อความประกาศแล้ว", "✅");
       } else {
         appState.textAnnouncements.unshift({ id: "txt-" + Date.now(), message });
+        showToast("เพิ่มข้อความประกาศด่วนแล้ว", "📢");
       }
       resetTextAnnForm();
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
     }
 
@@ -2221,10 +2688,11 @@ function doPost(e) {
 
     function deleteTextAnn(id) {
       appState.textAnnouncements = appState.textAnnouncements.filter(t => t.id !== id);
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
     }
 
+    // ==================== ADMIN & ROLE MANAGEMENT ====================
     function handleSaveRoleAdmin(e) {
       if (e) e.preventDefault();
       const editId = document.getElementById("editRoleAdminId").value;
@@ -2251,12 +2719,15 @@ function doPost(e) {
           showNoticeModal("ชื่อผู้ใช้ซ้ำ", "มี Username นี้ในระบบแล้ว");
           return;
         }
-        appState.admins.push({ id: "adm-" + Date.now(), username, password, displayName, role, active: true });
+        appState.admins.push({
+          id: "adm-" + Date.now(),
+          username, password, displayName, role, active: true
+        });
       }
       resetRoleAdminForm();
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
-      showNoticeModal("สำเร็จ", "บันทึกข้อมูลแอดมินเรียบร้อยแล้ว");
+      showNoticeModal("สำเร็จ ✅", "บันทึกข้อมูลบัญชีแอดมินเรียบร้อยแล้ว");
     }
 
     function editRoleAdmin(id) {
@@ -2290,7 +2761,7 @@ function doPost(e) {
         return;
       }
       adm.active = adm.active === false ? true : false;
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
     }
 
@@ -2301,50 +2772,139 @@ function doPost(e) {
       }
       showConfirmModal({
         title: "ยืนยันการลบบัญชี",
-        message: "ต้องการลบบัญชีแอดมินนี้?",
+        message: "ต้องการลบบัญชีแอดมินนี้ใช่หรือไม่?",
         danger: true,
         onConfirm: () => {
           appState.admins = appState.admins.filter(a => a.id !== id);
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
         }
       });
     }
 
-    function handleSaveProjectName(e) {
-      e.preventDefault();
-      const name = sanitizeInput(document.getElementById("projectNameInput").value);
-      if (!name) return;
-      appState.projectName = name;
-      saveStateToStorage(true);
-      renderAll();
-      showNoticeModal("สำเร็จ", `เปลี่ยนชื่อโครงการเป็น "${name}" แล้ว`);
-    }
-
-    // ==================== CLOUD SYNC & BACKUP ====================
+    // ==================== CLOUD SYNC (GOOGLE SHEETS & DRIVE) ====================
     function handleDraftGasUrlInput(val) {
-      const clean = sanitizeInput(val);
-      const g1 = document.getElementById("gasUrlInput");
-      const g2 = document.getElementById("cloneGasUrlInput");
-      if (g1 && document.activeElement !== g1) g1.value = clean;
-      if (g2 && document.activeElement !== g2) g2.value = clean;
+      const cleanVal = sanitizeInput(val);
+      const inp1 = document.getElementById("gasUrlInput");
+      const inp2 = document.getElementById("cloneGasUrlInput");
+      if (inp1 && inp1.value !== cleanVal) inp1.value = cleanVal;
+      if (inp2 && inp2.value !== cleanVal) inp2.value = cleanVal;
     }
 
-    function handleSaveGasUrl(showModal = false) {
-      appState.gasUrl = sanitizeInput(document.getElementById("gasUrlInput").value);
-      saveStateToStorage(false);
-      if (showModal) {
-        if (appState.gasUrl) {
-          showNoticeModal("บันทึก URL สำเร็จ", "ระบบบันทึกลิงก์ Google Apps Script แล้ว สามารถกด 'ส่งข้อมูลในเครื่องขึ้น Cloud ทันที' เพื่อเริ่มต้นซิงค์ได้เลย");
-        } else {
-          showNoticeModal("ยกเลิกการเชื่อมต่อ Cloud", "ล้างลิงก์ Web App URL เรียบร้อยแล้ว ระบบจะทำงานและบันทึกข้อมูลในเครื่องตามปกติ");
-        }
+    function copyGasScriptCode() {
+      const codeEl = document.getElementById("gasScriptSourceCode");
+      if (!codeEl) return;
+      const tempArea = document.createElement("textarea");
+      tempArea.value = codeEl.textContent;
+      document.body.appendChild(tempArea);
+      tempArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(tempArea);
+      showToast("คัดลอกโค้ด Google Apps Script แล้ว", "📋");
+    }
+
+    async function handleSaveGasUrl(showModal = false) {
+      const url = sanitizeInput(document.getElementById("gasUrlInput").value);
+      appState.gasUrl = url;
+      saveStateToStorage();
+      updateCloudSyncBadges();
+      startAutoCloudSyncTimer();
+      if (url) {
+        await fetchFromGoogleSheetsCloud(showModal);
+      } else if (showModal) {
+        showNoticeModal("บันทึกแล้ว", "ล้างค่า Web App URL เรียบร้อย (สลับเป็นโหมดออฟไลน์)");
       }
     }
 
     async function pushStateToGoogleSheetsCloud(manual = false) {
       if (!appState.gasUrl) {
-        if (manual) showNoticeModal("ยังไม่ได้ระบุ URL", "กรุณาวางลิงก์ Google Apps Script Web App URL ก่อน");
+        if (manual) showNoticeModal("ยังไม่ได้ตั้งค่า URL", "กรุณาวางลิงก์ Google Apps Script Web App URL ก่อน");
+        return false;
+      }
+      try {
+        const lightweightState = JSON.parse(JSON.stringify(appState));
+        delete lightweightState.connectionLogs;
+
+        await fetch(appState.gasUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "sync_state", state: lightweightState })
+        });
+        addConnectionLog("Google Sheets", "ส่งข้อมูลซิงค์ขึ้น Cloud เรียบร้อย", true);
+        if (manual) showNoticeModal("ส่งข้อมูลสำเร็จ ✅", "ส่งข้อมูลขึ้น Google Sheets เรียบร้อยแล้ว");
+        return true;
+      } catch (err) {
+        addConnectionLog("Google Sheets", `ส่งข้อมูลล้มเหลว: ${err.message}`, false);
+        if (manual) showNoticeModal("ซิงค์ล้มเหลว ❌", `ไม่สามารถเชื่อมต่อ URL ได้: ${err.message}`);
+        return false;
+      }
+    }
+
+    async function fetchFromGoogleSheetsCloud(manual = false) {
+      if (!appState.gasUrl) {
+        if (manual) showNoticeModal("ยังไม่ได้ตั้งค่า URL", "กรุณาระบุ Google Apps Script Web App URL ในแท็บ สำรองไฟล์ ก่อนดึงข้อมูล");
+        return false;
+      }
+      try {
+        const res = await fetch(`${appState.gasUrl}?action=get_state&t=${Date.now()}`);
+        const json = await res.json();
+        if (json && json.status === "success" && json.data && !json.data.empty) {
+          const remote = json.data;
+          if (Array.isArray(remote.requests)) appState.requests = remote.requests;
+          if (Array.isArray(remote.parcels)) appState.parcels = remote.parcels;
+          if (Array.isArray(remote.houses) && remote.houses.length > 0) appState.houses = remote.houses;
+          if (Array.isArray(remote.locations) && remote.locations.length > 0) appState.locations = remote.locations;
+          if (Array.isArray(remote.textAnnouncements)) appState.textAnnouncements = remote.textAnnouncements;
+          if (remote.projectName) appState.projectName = remote.projectName;
+
+          reconcileRequestsAndParcels();
+          saveStateToStorage();
+          renderAll();
+          addConnectionLog("Google Sheets", "ดึงข้อมูลล่าสุดจาก Cloud สำเร็จ", true);
+          if (manual) showNoticeModal("ซิงค์สำเร็จ ✅", "ดึงข้อมูลล่าสุดจาก Google Sheets เรียบร้อยแล้ว");
+          return true;
+        } else {
+          await pushStateToGoogleSheetsCloud(false);
+          if (manual) showNoticeModal("เชื่อมต่อสำเร็จ ✅", "เชื่อมต่อกับ Google Sheets และส่งข้อมูลเริ่มต้นขึ้นชีตแล้ว");
+          return true;
+        }
+      } catch (err) {
+        addConnectionLog("Google Sheets", `ดึงข้อมูลล้มเหลว: ${err.message}`, false);
+        if (manual) showNoticeModal("เชื่อมต่อไม่สำเร็จ ❌", `ไม่สามารถดึงข้อมูลจาก Web App URL ได้:\n${err.message}\n\nกรุณาตรวจสอบว่า Deploy Web App ตั้งสิทธิ์เป็น "ทุกคน (Anyone)"`);
+        return false;
+      }
+    }
+
+    function startAutoCloudSyncTimer() {
+      clearInterval(cloudSyncTimer);
+      if (!appState.gasUrl) return;
+      cloudSyncTimer = setInterval(() => {
+        fetchFromGoogleSheetsCloud(false);
+      }, 20000);
+    }
+
+    function updateCloudSyncBadges() {
+      const hasUrl = Boolean(appState.gasUrl && appState.gasUrl.trim());
+      const badge = document.getElementById("realSyncBadge");
+      const text = document.getElementById("realSyncText");
+      const cardBadge = document.getElementById("connCardCloudBadge");
+      const cardDetail = document.getElementById("connCardCloudDetail");
+
+      if (badge && text) {
+        badge.classList.toggle("offline", !hasUrl);
+        text.textContent = hasUrl ? "Real-Sync ออนไลน์ (20s)" : "โหมดออฟไลน์ (Local)";
+      }
+      if (cardBadge && cardDetail) {
+        cardBadge.className = hasUrl ? "badge badge-matched" : "badge badge-opt";
+        cardBadge.textContent = hasUrl ? "เชื่อมต่อออนไลน์" : "โหมดออฟไลน์";
+        cardDetail.textContent = hasUrl ? `เชื่อมต่อกับ: ${appState.gasUrl.slice(0, 45)}...` : "ยังไม่ได้ตั้งค่า Google Apps Script Web App URL";
+      }
+    }
+
+    async function handleBackupToGoogleDrive() {
+      if (!appState.gasUrl) {
+        showNoticeModal("กรุณาระบุ URL", "กรุณากรอกและบันทึก Google Apps Script Web App URL ก่อนสำรองลง Google Drive");
         return;
       }
       try {
@@ -2352,80 +2912,37 @@ function doPost(e) {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "saveState", state: appState })
+          body: JSON.stringify({ action: "backup_drive", state: appState })
         });
-        addConnectionLog("Google Sheets Cloud", "ส่งข้อมูลล่าสุดขึ้น Google Sheets สำเร็จ", true);
-        if (manual) showNoticeModal("ส่งข้อมูลสำเร็จ", "ส่งข้อมูลล่าสุดในเครื่องขึ้น Google Sheets เรียบร้อยแล้ว");
-      } catch (e) {
-        addConnectionLog("Google Sheets Cloud", `ส่งข้อมูลไม่สำเร็จ: ${e.message}`, false);
-        if (manual) showNoticeModal("ส่งข้อมูลไม่สำเร็จ", e.message);
+        addConnectionLog("Google Drive", "ส่งคำขอสำรองไฟล์ JSON ลง Google Drive แล้ว", true);
+        showNoticeModal("ส่งคำขอสำรองสำเร็จ ✅", "ระบบได้ส่งไฟล์สำรองข้อมูล (.json) ไปบันทึกใน Google Drive ของเจ้าของสคริปต์เรียบร้อยแล้ว");
+      } catch (err) {
+        showNoticeModal("ข้อผิดพลาด", `ไม่สามารถสำรองลง Google Drive ได้: ${err.message}`);
       }
     }
 
-    async function fetchFromGoogleSheetsCloud(manual = false) {
-      if (!appState.gasUrl) {
-        if (manual) showNoticeModal("ทำงานโหมดในเครื่อง (Local)", "ยังไม่ได้เชื่อมต่อ Google Sheets Web App URL ข้อมูลทั้งหมดถูกบันทึกอยู่ในเครื่องเรียบร้อยแล้ว");
-        return;
-      }
-      try {
-        const sep = appState.gasUrl.includes("?") ? "&" : "?";
-        const res = await fetch(`${appState.gasUrl}${sep}action=getState&t=${Date.now()}`);
-        const cloudData = await res.json();
-        if (cloudData && !cloudData.empty && typeof cloudData === "object") {
-          const cloudTs = Number(cloudData.lastUpdated || 0);
-          const localTs = Number(appState.lastUpdated || 0);
-          if (!manual && localTs > cloudTs) {
-            // ข้อมูลในเครื่องใหม่กว่า ไม่นำข้อมูลเก่าจาก Cloud มาเขียนทับ
-            return;
-          }
-          Object.assign(appState, cloudData);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-          updateLastSavedBadge();
-          renderAll();
-          addConnectionLog("Google Sheets Cloud", "ดึงข้อมูลล่าสุดจาก Google Sheets สำเร็จ", true);
-          if (manual) showNoticeModal("ซิงค์ข้อมูลสำเร็จ", "อัปเดตข้อมูลล่าสุดจาก Google Sheets เรียบร้อยแล้ว");
-        } else {
-          if (manual) showNoticeModal("ยังไม่มีข้อมูลบน Cloud", "Google Sheets ยังไม่มีข้อมูลบันทึกไว้ แนะนำให้กด 'ส่งข้อมูลในเครื่องขึ้น Cloud ทันที' ก่อน");
-        }
-      } catch (e) {
-        addConnectionLog("Google Sheets Cloud", `ดึงข้อมูลไม่สำเร็จ: ${e.message}`, false);
-        if (manual) showNoticeModal("ดึงข้อมูลไม่สำเร็จ", `ไม่สามารถเชื่อมต่อ URL ได้: ${e.message}`);
-      }
-    }
-
-    function copyGasScriptCode() {
-      const code = document.getElementById("gasCodeSnippetBox").textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        showNoticeModal("คัดลอกสำเร็จ", "คัดลอกโค้ด Google Apps Script ลงคลิปบอร์ดแล้ว");
-      });
+    // ==================== BACKUP, RESTORE & DELETION TOOLS ====================
+    function handleSaveProjectName(e) {
+      e.preventDefault();
+      const name = sanitizeInput(document.getElementById("projectNameInput").value);
+      if (!name) return;
+      appState.projectName = name;
+      saveStateToStorage();
+      renderAll();
+      showNoticeModal("บันทึกสำเร็จ ✅", `เปลี่ยนชื่อโครงการเป็น "${name}" เรียบร้อยแล้ว`);
     }
 
     function handleExportBackupJson() {
       const blob = new Blob([JSON.stringify(appState, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `Parcel_Backup_${getTodayDateString()}.json`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      a.href = url;
+      a.download = `Parcel_Backup_${getTodayDateString()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    }
-
-    async function handleBackupToGoogleDrive() {
-      if (!appState.gasUrl) {
-        showNoticeModal("แจ้งเตือน", "กรุณาระบุ Google Apps Script Web App URL ก่อน");
-        return;
-      }
-      try {
-        await fetch(appState.gasUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "backupDrive", state: appState })
-        });
-        addConnectionLog("Google Drive Backup", "ส่งคำขอสำรองไฟล์ JSON ลง Google Drive แล้ว", true);
-        showNoticeModal("สำเร็จ", "ส่งไฟล์สำรอง (.json) ไปบันทึกใน Google Drive ของคุณแล้ว");
-      } catch (e) {
-        showNoticeModal("ผิดพลาด", e.message);
-      }
+      showToast("ดาวน์โหลดไฟล์สำรอง .json แล้ว", "💾");
     }
 
     function handleImportBackupJson(event) {
@@ -2436,11 +2953,12 @@ function doPost(e) {
         try {
           const parsed = JSON.parse(evt.target.result);
           Object.assign(appState, parsed);
-          saveStateToStorage(true);
+          reconcileRequestsAndParcels();
+          saveStateToStorage();
           renderAll();
-          showNoticeModal("สำเร็จ", "กู้คืนข้อมูลสำเร็จ");
+          showNoticeModal("กู้คืนข้อมูลสำเร็จ ✅", "นำเข้าข้อมูลจากไฟล์สำรองเรียบร้อยแล้ว");
         } catch (e) {
-          showNoticeModal("ผิดพลาด", "ไม่สามารถอ่านไฟล์ JSON ได้");
+          showNoticeModal("ข้อผิดพลาด", "ไม่สามารถอ่านไฟล์ JSON ได้ กรุณาตรวจสอบความถูกต้องของไฟล์");
         }
         event.target.value = "";
       };
@@ -2449,55 +2967,64 @@ function doPost(e) {
 
     function handleDeleteAllReset() {
       showConfirmModal({
-        title: "คืนค่าเริ่มต้น",
-        message: "ต้องการลบข้อมูลทั้งหมดกลับสู่ 0 รายการ?",
+        title: "⚠️ ยืนยันการคืนค่าเริ่มต้น (ล้างข้อมูลเป็น 0)",
+        message: "คำขอรับพัสดุ พัสดุประจำวัน และประวัติรายงานทั้งหมดจะถูกลบออก ต้องการดำเนินการต่อใช่หรือไม่?",
         danger: true,
+        confirmText: "ล้างข้อมูลทั้งหมด",
         onConfirm: () => {
           appState.requests = [];
           appState.parcels = [];
           appState.reportHistory = [];
           appState.latestSubmittedRequest = null;
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
-          showNoticeModal("สำเร็จ", "ลบข้อมูลทั้งหมดแล้ว");
+          if (appState.gasUrl) pushStateToGoogleSheetsCloud(false);
+          showNoticeModal("ล้างข้อมูลสำเร็จ", "ระบบกลับสู่สถานะ 0 รายการเรียบร้อยแล้ว");
         }
       });
     }
 
     function handleDeleteParcelsByDate() {
       const d = document.getElementById("deleteParcelDatePicker").value;
-      if (!d) return;
+      if (!d) {
+        showNoticeModal("กรุณาเลือกวันที่", "กรุณาเลือกวันที่ที่ต้องการลบรายการพัสดุ");
+        return;
+      }
       showConfirmModal({
         title: "ลบพัสดุตามวันที่",
-        message: `ต้องการลบพัสดุวันที่ ${d}?`,
+        message: `ต้องการลบรายการพัสดุประจำวันที่ ${d} ทั้งหมดใช่หรือไม่?`,
         danger: true,
         onConfirm: () => {
           appState.parcels = appState.parcels.filter(p => p.date !== d);
           reconcileRequestsAndParcels();
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
-          showNoticeModal("สำเร็จ", "ลบพัสดุเรียบร้อยแล้ว");
+          showNoticeModal("สำเร็จ", `ลบรายการพัสดุวันที่ ${d} เรียบร้อยแล้ว`);
         }
       });
     }
 
     function handleDeleteRequestsByDate() {
       const d = document.getElementById("deleteRequestDatePicker").value;
-      if (!d) return;
+      if (!d) {
+        showNoticeModal("กรุณาเลือกวันที่", "กรุณาเลือกวันที่ที่ต้องการลบประวัติคำขอ");
+        return;
+      }
       showConfirmModal({
         title: "ลบคำขอตามวันที่",
-        message: `ต้องการลบคำขอวันที่ ${d}?`,
+        message: `ต้องการลบประวัติคำขอรับพัสดุวันที่ ${d} ทั้งหมดใช่หรือไม่?`,
         danger: true,
         onConfirm: () => {
           appState.requests = appState.requests.filter(r => r.date !== d);
           reconcileRequestsAndParcels();
-          saveStateToStorage(true);
+          saveStateToStorage();
           renderAll();
-          showNoticeModal("สำเร็จ", "ลบคำขอเรียบร้อยแล้ว");
+          showNoticeModal("สำเร็จ", `ลบประวัติคำขอวันที่ ${d} เรียบร้อยแล้ว`);
         }
       });
     }
 
+    // ==================== SETTINGS SUB-TABS & CLONE APP ====================
     function switchSettingsSubTab(subTabId) {
       document.querySelectorAll(".settings-subpane").forEach(p => p.classList.add("hidden"));
       const target = document.getElementById(subTabId);
@@ -2521,19 +3048,25 @@ function doPost(e) {
       appState.telegram.botToken = sanitizeInput(document.getElementById("tgBotTokenInput").value);
       appState.telegram.chatId = sanitizeInput(document.getElementById("tgChatIdInput").value);
       appState.telegram.enabled = document.getElementById("tgEnableCheck").checked;
-      saveStateToStorage(true);
+      saveStateToStorage();
       renderAll();
-      showNoticeModal("สำเร็จ", "บันทึกการตั้งค่า Telegram Bot แล้ว แนะนำให้กดปุ่ม 'ทดสอบส่งข้อความจริงเข้า Telegram' เพื่อยืนยันการทำงาน");
+      showNoticeModal("บันทึกสำเร็จ ✅", "บันทึกการตั้งค่า Telegram Bot เรียบร้อยแล้ว");
     }
 
     function handleManualSyncCheck() {
-      fetchFromGoogleSheetsCloud(true);
+      if (appState.gasUrl) {
+        fetchFromGoogleSheetsCloud(true);
+      } else {
+        addConnectionLog("System Check", "ตรวจสอบระบบ Local Storage ทำงานปกติ (ยังไม่ได้เชื่อมต่อ Cloud)", true);
+        showNoticeModal("ตรวจสอบระบบสำเร็จ", "ระบบ Local Storage และ Telegram Bot พร้อมทำงาน (ยังไม่ได้ระบุ Google Apps Script URL)");
+      }
     }
 
     function handleClearConnectionLogs() {
       appState.connectionLogs = [];
-      saveStateToStorage(false);
+      saveStateToStorage();
       renderConnectionLogs();
+      showToast("ล้างประวัติการเชื่อมต่อแล้ว", "🧹");
     }
 
     function renderConnectionLogs() {
@@ -2541,24 +3074,120 @@ function doPost(e) {
       if (!tbody) return;
       const logs = appState.connectionLogs || [];
       if (logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีประวัติการเชื่อมต่อ</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีบันทึกประวัติการเชื่อมต่อ</td></tr>`;
         return;
       }
-      tbody.innerHTML = logs.map(l => `\n        <tr>\n          <td>${l.timestamp}</td>\n          <td><strong>${escapeHtml(l.channel)}</strong></td>\n          <td>${escapeHtml(l.detail)}</td>\n          <td><span class="badge ${l.success ? 'badge-matched' : 'badge-req'}">${l.success ? 'สำเร็จ' : 'ผิดพลาด'}</span></td>\n        </tr>\n      `).join("");
+      tbody.innerHTML = logs.map(l => `
+        <tr>
+          <td>${l.timestamp}</td>
+          <td><strong>${l.channel}</strong></td>
+          <td>${l.detail}</td>
+          <td><span class="badge ${l.success ? 'badge-matched' : 'badge-req'}">${l.success ? 'สำเร็จ' : 'ล้มเหลว'}</span></td>
+        </tr>
+      `).join("");
     }
 
     function handlePrintAllRequestsHistoryPdf() {
       if (appState.requests.length === 0) {
-        showNoticeModal("ไม่มีข้อมูล", "ยังไม่มีประวัติคำขอ");
+        showNoticeModal("ไม่มีข้อมูล", "ยังไม่มีประวัติคำขอในระบบ");
         return;
       }
-      let html = `<style>body{font-family:'Sarabun',sans-serif;margin:0;padding:16px;}.table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:8px;}</style>`;
-      html += `<h2>รายงานประวัติคำขอทั้งหมด - ${escapeHtml(appState.projectName)}</h2><table class="table"><thead><tr><th>วันที่</th><th>เวลา</th><th>บ้านเลขที่</th><th>จุดรับ</th><th>เบอร์โทร</th></tr></thead><tbody>`;
-      appState.requests.forEach(r => {
-        html += `<tr><td>${r.date}</td><td>${r.time}</td><td>${escapeHtml(r.house)}</td><td>${escapeHtml(r.locationName)}</td><td>${escapeHtml(r.phone)}</td></tr>`;
+      let html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานประวัติคำขอสะสม</title>
+      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+      <style>body{font-family:'Sarabun',sans-serif;margin:0;padding:16px;color:#000;}table{width:100%;border-collapse:collapse;font-size:14px;}th,td{border:1px solid #000;padding:8px;text-align:left;}th{background:#f1f5f9;}</style></head><body>`;
+      html += `<h2 style="margin:0 0 6px 0;">🏢 ${appState.projectName}</h2><h3 style="margin:0 0 14px 0;">รายงานประวัติคำขอแจ้งรับพัสดุสะสม (ทั้งหมด ${appState.requests.length} รายการ)</h3>`;
+      html += `<table><thead><tr><th>ลำดับ</th><th>วันที่</th><th>เวลา</th><th>บ้านเลขที่</th><th>จุดรับพัสดุ</th><th>เบอร์โทร</th><th>สถานะ</th></tr></thead><tbody>`;
+      appState.requests.forEach((r, idx) => {
+        html += `<tr><td>${idx+1}</td><td>${r.date}</td><td>${r.time}</td><td><strong>${r.house}</strong></td><td>${r.locationName}</td><td>${r.phone}</td><td>${r.matched ? "พร้อมจ่าย" : "รอพัสดุ"}</td></tr>`;
       });
-      html += `</tbody></table>`;
+      html += `</tbody></table></body></html>`;
       executeIsolatedPrint(html);
+    }
+
+    function handleSaveAndVerifyCloneGasUrl() {
+      const url = sanitizeInput(document.getElementById("cloneGasUrlInput").value);
+      if (!url) {
+        showNoticeModal("กรุณาป้อนข้อมูล", "กรุณาวางลิงก์ Google Apps Script Web App URL ก่อนยืนยัน");
+        return;
+      }
+      appState.gasUrl = url;
+      saveStateToStorage();
+      renderAll();
+      const badge = document.getElementById("cloneGasUrlSavedBadge");
+      if (badge) {
+        badge.className = "badge badge-matched";
+        badge.textContent = "✅ บันทึกลิงก์พร้อมซิงค์ในแอพสำเนาแล้ว";
+      }
+      showNoticeModal("ยืนยันลิงก์สำเร็จ ✅", "บันทึกลิงก์ Apps Script สำหรับแอพสำเนาเรียบร้อยแล้ว");
+    }
+
+    function handlePreviewClonedMode() {
+      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value);
+      if (title) {
+        appState.projectName = title;
+        saveStateToStorage();
+        renderAll();
+        showToast(`เปลี่ยนชื่อแสดงผลเป็น "${title}" แล้ว`, "👁️");
+      }
+    }
+
+    function handleGenerateClonedAppFile() {
+      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value) || appState.projectName;
+      const mode = document.getElementById("cloneDataModeSelect").value;
+      const cloneUrl = sanitizeInput(document.getElementById("cloneGasUrlInput").value) || appState.gasUrl;
+
+      const cloned = JSON.parse(JSON.stringify(appState));
+      cloned.isClonedInstance = true;
+      cloned.gasUrl = cloneUrl;
+      cloned.projectName = title;
+
+      if (mode === "config_only") {
+        cloned.requests = [];
+        cloned.parcels = [];
+        cloned.reportHistory = [];
+        cloned.latestSubmittedRequest = null;
+      }
+
+      let source = document.documentElement.outerHTML;
+      const initInjection = `<script>window.__CLONED_INITIAL_STATE__ = ${JSON.stringify(cloned)};<\/script>`;
+      source = source.replace("</head>", `${initInjection}\n</head>`);
+
+      const b = new Blob(["<!doctype html>\n" + source], { type: "text/html;charset=utf-8" });
+      const u = URL.createObjectURL(b);
+      const a = document.createElement("a");
+      a.href = u;
+      a.download = `Juristic_Synced_App_${title.replace(/[^a-zA-Z0-9ก-๙_-]/g, "_")}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(u);
+      showNoticeModal("ดาวน์โหลดไฟล์สำเนาสำเร็จ ✅", `สร้างไฟล์ "${a.download}" พร้อมค่าตั้งค่าทั้งหมดเรียบร้อยแล้ว`);
+    }
+
+    // ==================== DASHBOARD FILTERING ====================
+    function initDashboardFilterInputs() {
+      const today = getTodayDateString();
+      const dDay = document.getElementById("dashInputDate");
+      const dMonth = document.getElementById("dashInputMonth");
+      const dYear = document.getElementById("dashInputYear");
+      const dStart = document.getElementById("dashInputStartDate");
+      const dEnd = document.getElementById("dashInputEndDate");
+
+      if (dDay && !dDay.value) dDay.value = today;
+      if (dMonth && !dMonth.value) dMonth.value = today.slice(0, 7);
+      if (dStart && !dStart.value) dStart.value = today;
+      if (dEnd && !dEnd.value) dEnd.value = today;
+
+      if (dYear && dYear.options.length === 0) {
+        const curYear = new Date().getFullYear();
+        for (let y = curYear + 1; y >= curYear - 5; y--) {
+          const opt = document.createElement("option");
+          opt.value = String(y);
+          opt.textContent = `ปี ${y + 543} (${y})`;
+          if (y === curYear) opt.selected = true;
+          dYear.appendChild(opt);
+        }
+      }
     }
 
     function setDashboardFilterMode(mode) {
@@ -2571,10 +3200,21 @@ function doPost(e) {
       document.getElementById("dashControlMonth").classList.toggle("hidden", mode !== "month");
       document.getElementById("dashControlYear").classList.toggle("hidden", mode !== "year");
       document.getElementById("dashControlCustom").classList.toggle("hidden", mode !== "custom");
+
+      const labelMap = {
+        day: "แสดงข้อมูล: รายวัน",
+        month: "แสดงข้อมูล: รายเดือน",
+        year: "แสดงข้อมูล: รายปี",
+        custom: "แสดงข้อมูล: ระบุช่วงวันที่",
+        all: "แสดงข้อมูล: สะสมทั้งหมด"
+      };
+      const lbl = document.getElementById("dashboardPeriodLabel");
+      if (lbl) lbl.textContent = labelMap[mode] || "";
       renderAll();
     }
 
     function isDateInFilter(dateStr) {
+      if (!dateStr) return true;
       if (dashboardFilterMode === "all") return true;
       if (dashboardFilterMode === "day") return dateStr === (document.getElementById("dashInputDate")?.value || getTodayDateString());
       if (dashboardFilterMode === "month") return dateStr.slice(0, 7) === (document.getElementById("dashInputMonth")?.value || getTodayDateString().slice(0, 7));
@@ -2599,19 +3239,34 @@ function doPost(e) {
               locationName: r.locationName,
               phone: r.phone,
               count: pcls.length,
-              references: pcls.map(p => p.carrier.length > 5 ? p.carrier.slice(-5) : p.carrier).join(", ")
+              references: pcls.map(p => p.carrier).join(", ")
             };
           }
         }
       });
-      return Object.values(map);
+      return Object.values(map).sort((a, b) => a.house.localeCompare(b.house, 'th', { numeric: true }));
     }
 
+    // ==================== PORTAL NAVIGATION & AUTH ====================
     function switchPortalMode(mode) {
       document.getElementById("viewUserPortal").classList.toggle("hidden", mode !== "user");
       document.getElementById("viewAdminPortal").classList.toggle("hidden", mode !== "admin");
       document.getElementById("btnModeUser").classList.toggle("active", mode === "user");
       document.getElementById("btnModeAdmin").classList.toggle("active", mode === "admin");
+      if (mode === "admin") renderAdminAuthView();
+    }
+
+    function renderAdminAuthView() {
+      const gate = document.getElementById("adminLoginGate");
+      const workspace = document.getElementById("adminWorkspace");
+      if (!gate || !workspace) return;
+      if (isAdminAuthenticated) {
+        gate.classList.add("hidden");
+        workspace.classList.remove("hidden");
+      } else {
+        gate.classList.remove("hidden");
+        workspace.classList.add("hidden");
+      }
     }
 
     function switchAdminTab(tabId) {
@@ -2622,11 +3277,6 @@ function doPost(e) {
       if (tabId === "tabReportA4") renderA4ReportPreview();
     }
 
-    function renderAdminAuthView() {
-      document.getElementById("adminLoginGate").classList.toggle("hidden", isAdminAuthenticated);
-      document.getElementById("adminWorkspace").classList.toggle("hidden", !isAdminAuthenticated);
-    }
-
     function handleAdminLogin(e) {
       e.preventDefault();
       const u = sanitizeInput(document.getElementById("loginUsername").value);
@@ -2635,16 +3285,18 @@ function doPost(e) {
       if (matched) {
         if (matched.active === false) {
           const err = document.getElementById("loginErrorMsg");
-          err.textContent = "บัญชีนี้ถูกระงับการใช้งาน";
+          err.textContent = "⚠️ บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อ Super Admin";
           err.classList.remove("hidden");
           return;
         }
         isAdminAuthenticated = true;
+        document.getElementById("loginErrorMsg").classList.add("hidden");
         renderAdminAuthView();
         renderAll();
+        showToast(`ยินดีต้อนรับ ${matched.displayName || matched.username}`, "🛡️");
       } else {
         const err = document.getElementById("loginErrorMsg");
-        err.textContent = "Username หรือ Password ไม่ถูกต้อง";
+        err.textContent = "❌ Username หรือ Password ไม่ถูกต้อง";
         err.classList.remove("hidden");
       }
     }
@@ -2655,10 +3307,13 @@ function doPost(e) {
       document.getElementById("loginUsername").value = "";
       document.getElementById("loginPassword").value = "";
       document.getElementById("loginErrorMsg").classList.add("hidden");
+      showToast("ออกจากระบบแอดมินแล้ว", "👋");
     }
 
+    // ==================== MASTER RENDER FUNCTION ====================
     function renderAll() {
       reconcileRequestsAndParcels();
+      updateCloudSyncBadges();
 
       const projName = appState.projectName || "โครงการอาคารชุดนิติบุคคล";
       document.getElementById("headerProjectNameBadge").textContent = "🏢 " + projName;
@@ -2668,59 +3323,84 @@ function doPost(e) {
       const pInp = document.getElementById("projectNameInput");
       if (pInp && document.activeElement !== pInp) pInp.value = projName;
 
-      const g1 = document.getElementById("gasUrlInput");
-      if (g1 && document.activeElement !== g1) g1.value = appState.gasUrl || "";
-      const g2 = document.getElementById("cloneGasUrlInput");
-      if (g2 && document.activeElement !== g2) g2.value = appState.gasUrl || "";
+      // Sync Settings Inputs
+      const gas1 = document.getElementById("gasUrlInput");
+      const gas2 = document.getElementById("cloneGasUrlInput");
+      if (gas1 && document.activeElement !== gas1) gas1.value = appState.gasUrl || "";
+      if (gas2 && document.activeElement !== gas2) gas2.value = appState.gasUrl || "";
 
-      // Telegram fields sync
       const tgTok = document.getElementById("tgBotTokenInput");
       const tgChat = document.getElementById("tgChatIdInput");
-      const tgChk = document.getElementById("tgEnableCheck");
-      if (tgTok && document.activeElement !== tgTok) tgTok.value = (appState.telegram && appState.telegram.botToken) || "";
-      if (tgChat && document.activeElement !== tgChat) tgChat.value = (appState.telegram && appState.telegram.chatId) || "";
-      if (tgChk) tgChk.checked = appState.telegram ? appState.telegram.enabled !== false : true;
+      const tgEn = document.getElementById("tgEnableCheck");
+      if (tgTok && document.activeElement !== tgTok) tgTok.value = appState.telegram?.botToken || "";
+      if (tgChat && document.activeElement !== tgChat) tgChat.value = appState.telegram?.chatId || "";
+      if (tgEn) tgEn.checked = appState.telegram?.enabled !== false;
 
-      // Dropdowns
+      const c19 = document.getElementById("autoClear1900Check");
+      const c21 = document.getElementById("autoCutoff2100Check");
+      if (c19) c19.checked = appState.automation?.autoClear1900 !== false;
+      if (c21) c21.checked = appState.automation?.autoCutoff2100 !== false;
+
+      const speedSel = document.getElementById("slideshowSpeedSelect");
+      if (speedSel) speedSel.value = String(appState.slideshowSpeedMs ?? 5000);
+
+      // Location Dropdowns
       const reqSel = document.getElementById("reqLocationSelect");
       const admReqSel = document.getElementById("admReqLocationSelect");
       if (reqSel) {
         const cur = reqSel.value;
-        reqSel.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` + appState.locations.map(l => `<option value="${escapeHtml(l.name)}">${escapeHtml(l.name)}</option>`).join("");
+        reqSel.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` + appState.locations.map(l => `<option value="${l.name}">${l.name}</option>`).join("");
         reqSel.value = cur;
         handlePickupLocationChange();
       }
       if (admReqSel) {
         const cur = admReqSel.value;
-        admReqSel.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` + appState.locations.map(l => `<option value="${escapeHtml(l.name)}">${escapeHtml(l.name)}</option>`).join("");
+        admReqSel.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` + appState.locations.map(l => `<option value="${l.name}">${l.name}</option>`).join("");
         admReqSel.value = cur;
       }
 
+      // House Datalist
       const dl = document.getElementById("houseDatalist");
-      if (dl) dl.innerHTML = appState.houses.map(h => `<option value="${escapeHtml(h)}"></option>`).join("");
+      if (dl) dl.innerHTML = appState.houses.map(h => `<option value="${h}"></option>`).join("");
 
-      // Ticker
-      const tickerText = document.getElementById("userAnnouncementTickerText");
-      const tickerCard = document.getElementById("userAnnouncementTickerCard");
-      if (tickerText && tickerCard) {
-        if (appState.textAnnouncements.length > 0) {
-          tickerCard.classList.remove("hidden");
-          tickerText.textContent = appState.textAnnouncements[0].message;
-        } else {
-          tickerCard.classList.add("hidden");
-        }
-      }
+      // Ticker & Slideshow
+      renderTextTicker();
+      renderSlideshow();
+      renderLatestSubmissionCard();
 
-      // Text Ann Table
+      // Text Announcements Table
       const txtTbody = document.getElementById("textAnnouncementsTbody");
       if (txtTbody) {
-        txtTbody.innerHTML = (appState.textAnnouncements || []).map((t, idx) => `\n          <tr>\n            <td style="text-align:center;font-weight:700;">${idx+1}</td>\n            <td>📢 ${escapeHtml(t.message)}</td>\n            <td style="text-align:right;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editTextAnn('${t.id}')">✏️ แก้ไข</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteTextAnn('${t.id}')">ลบ</button>\n            </td>\n          </tr>\n        `).join("") || `<tr><td colspan="3" class="empty-state">ยังไม่มีข้อความประกาศ</td></tr>`;
+        txtTbody.innerHTML = (appState.textAnnouncements || []).map((t, idx) => `
+          <tr>
+            <td style="text-align:center;font-weight:700;">${idx+1}</td>
+            <td>📢 ${t.message}</td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="editTextAnn('${t.id}')">✏️ แก้ไข</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="deleteTextAnn('${t.id}')">ลบ</button>
+            </td>
+          </tr>
+        `).join("") || `<tr><td colspan="3" class="empty-state">ยังไม่มีข้อความประกาศในระบบ</td></tr>`;
       }
 
-      // Banner Ann Table
+      // Banner Announcements Table
       const annTbody = document.getElementById("announcementsTbody");
       if (annTbody) {
-        annTbody.innerHTML = (appState.announcements || []).map((a, idx) => `\n          <tr>\n            <td><strong>${idx+1}</strong></td>\n            <td><img src="${escapeHtml(a.imageUrl)}" alt="" style="width:100px; height:50px; object-fit:contain; background:#000; border-radius:6px;"></td>\n            <td><strong>${escapeHtml(a.title)}</strong></td>\n            <td>\n              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', -1)" ${idx===0?"disabled":""}>⬆️</button>\n              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', 1)" ${idx===appState.announcements.length-1?"disabled":""}>⬇️</button>\n            </td>\n            <td style="text-align:right;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editAnnouncement('${a.id}')">✏️</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteAnnouncement('${a.id}')">ลบ</button>\n            </td>\n          </tr>\n        `).join("") || `<tr><td colspan="5" class="empty-state">ยังไม่มีภาพประกาศ</td></tr>`;
+        annTbody.innerHTML = (appState.announcements || []).map((a, idx) => `
+          <tr>
+            <td><strong>${idx+1}</strong></td>
+            <td><img src="${a.imageUrl}" alt="" style="width:100px; height:50px; object-fit:contain; background:#000; border-radius:6px;" onerror="this.src='https://placehold.co/200x100/0D3F46/C5A880?text=No+Image'"></td>
+            <td><strong>${a.title}</strong></td>
+            <td style="white-space:nowrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', -1)" ${idx===0?"disabled":""}>⬆️</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', 1)" ${idx===appState.announcements.length-1?"disabled":""}>⬇️</button>
+            </td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="editAnnouncement('${a.id}')">✏️</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="deleteAnnouncement('${a.id}')">ลบ</button>
+            </td>
+          </tr>
+        `).join("") || `<tr><td colspan="5" class="empty-state">ยังไม่มีภาพประกาศ</td></tr>`;
       }
 
       // Admins Table
@@ -2728,17 +3408,25 @@ function doPost(e) {
       const settingsRoleTbody = document.getElementById("settingsRolePermissionsTbody");
       const adminRowsHtml = (appState.admins || []).map(a => {
         const act = a.active !== false;
-        return `\n          <tr>\n            <td><strong>${escapeHtml(a.username)}</strong></td>\n            <td>${escapeHtml(a.displayName || a.username)}</td>\n            <td><span class="badge badge-opt">${escapeHtml(a.role || "Super Admin")}</span></td>\n            <td><span class="badge ${act ? "badge-matched" : "badge-req"}">${act ? "Active" : "Suspended"}</span></td>\n            <td style="text-align:right; white-space:nowrap;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editRoleAdmin('${a.id}')">แก้ไข</button>\n              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleRoleAdminActive('${a.id}')">${act ? "ระงับ" : "เปิดใช้"}</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteAdminAccount('${a.id}')">ลบ</button>\n            </td>\n          </tr>\n        `;
+        return `
+          <tr>
+            <td><strong>${a.username}</strong></td>
+            <td>${a.displayName || a.username}</td>
+            <td><span class="badge badge-opt">${a.role || "Super Admin"}</span></td>
+            <td><span class="badge ${act ? "badge-matched" : "badge-req"}">${act ? "Active" : "Suspended"}</span></td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="editRoleAdmin('${a.id}')">แก้ไข</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleRoleAdminActive('${a.id}')">${act ? "ระงับ" : "เปิดใช้"}</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="deleteAdminAccount('${a.id}')">ลบ</button>
+            </td>
+          </tr>
+        `;
       }).join("") || `<tr><td colspan="5" class="empty-state">ไม่มีบัญชีแอดมิน</td></tr>`;
 
       if (roleTbody) roleTbody.innerHTML = adminRowsHtml;
       if (settingsRoleTbody) settingsRoleTbody.innerHTML = adminRowsHtml;
 
-      renderSlideshow();
-      renderLatestSubmissionCard();
-      renderConnectionLogs();
-
-      // Stats
+      // Dashboard Stats
       const latestReqs = getLatestRequestsOnly(appState.requests);
       const reqFiltered = latestReqs.filter(r => isDateInFilter(r.date));
       document.getElementById("statTotalRequests").textContent = reqFiltered.length;
@@ -2746,7 +3434,7 @@ function doPost(e) {
       document.getElementById("statTotalHouses").textContent = appState.houses.length;
       document.getElementById("statTotalAnnouncements").textContent = appState.announcements.length;
 
-      // Location breakdown
+      // Location Breakdown
       const breakdown = document.getElementById("dashboardLocationBreakdownContainer");
       if (breakdown) {
         const counts = {};
@@ -2766,179 +3454,150 @@ function doPost(e) {
           });
         });
 
-        breakdown.innerHTML = Object.keys(counts).map(loc => `\n          <div style="background:var(--surface-alt); border:1px solid var(--border); padding:12px 16px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">\n            <span style="font-size:13.5px; font-weight:700; color:var(--ink-secondary);">${escapeHtml(loc)}</span>\n            <strong style="font-size:18px; color:var(--brand);">${counts[loc]} ชิ้น</strong>\n          </div>\n        `).join("");
+        breakdown.innerHTML = Object.keys(counts).map(loc => `
+          <div style="background:var(--surface-alt); border:1px solid var(--border); padding:12px 16px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:13.5px; font-weight:700; color:var(--ink-secondary);">${loc}</span>
+            <strong style="font-size:18px; color:var(--brand);">${counts[loc]} ชิ้น</strong>
+          </div>
+        `).join("");
       }
 
-      // Unmatched
+      // Unmatched Requests
       const unmatchedTbody = document.getElementById("unmatchedRequestsTbody");
       if (unmatchedTbody) {
         const unmatched = latestReqs.filter(r => !r.matched);
-        unmatchedTbody.innerHTML = unmatched.map(r => `\n          <tr>\n            <td>${r.date} ${r.time}</td>\n            <td><strong>${escapeHtml(r.house)}</strong></td>\n            <td>${escapeHtml(r.locationName)}</td>\n            <td>${escapeHtml(r.phone)}</td>\n            <td><span class="badge badge-unmatched">รอพัสดุรับเข้า</span></td>\n          </tr>\n        `).join("") || `<tr><td colspan="5" class="empty-state">ไม่มีคำขอค้าง</td></tr>`;
+        unmatchedTbody.innerHTML = unmatched.map(r => `
+          <tr>
+            <td>${r.date} ${r.time}</td>
+            <td><strong>${r.house}</strong></td>
+            <td>${r.locationName}</td>
+            <td>${r.phone}</td>
+            <td><span class="badge badge-unmatched">รอพัสดุรับเข้า</span></td>
+          </tr>
+        `).join("") || `<tr><td colspan="5" class="empty-state">ไม่มีคำขอตกค้าง (ทุกคำขอจับคู่พัสดุแล้ว)</td></tr>`;
       }
 
-      // Parcels Tbody
+      // Daily Parcels Table
       const pclTbody = document.getElementById("dailyParcelsTbody");
       if (pclTbody) {
         const houseLocMap = {};
         appState.requests.forEach(r => { if (!houseLocMap[r.house]) houseLocMap[r.house] = r; });
         pclTbody.innerHTML = appState.parcels.map(p => {
           const match = houseLocMap[p.house];
-          return `\n            <tr>\n              <td>${p.date}</td>\n              <td><strong>${escapeHtml(p.house)}</strong></td>\n              <td><code>${escapeHtml(p.carrier)}</code></td>\n              <td>${escapeHtml(p.recipient)}</td>\n              <td>${match ? escapeHtml(match.locationName) : "หน้าห้องนิติบุคคล / Office"}</td>\n              <td><span class="badge ${match ? 'badge-matched' : 'badge-opt'}">${match ? 'จับคู่สำเร็จ' : 'รอคำขอ'}</span></td>\n              <td style="text-align:right;">\n                <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleParcel('${p.id}')">แก้ไข</button>\n                <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleParcel('${p.id}')">ลบ</button>\n              </td>\n            </tr>\n          `;
-        }).join("") || `<tr><td colspan="7" class="empty-state">ยังไม่มีพัสดุรับเข้าประจำวันนี้</td></tr>`;
+          return `
+            <tr>
+              <td>${p.date}</td>
+              <td><strong>${p.house}</strong></td>
+              <td><code>${p.carrier}</code></td>
+              <td>${p.recipient}</td>
+              <td>${match ? match.locationName : "หน้าห้องนิติบุคคล / Office"}</td>
+              <td><span class="badge ${match ? 'badge-matched' : 'badge-opt'}">${match ? 'จับคู่สำเร็จ' : 'รอคำขอจากลูกบ้าน'}</span></td>
+              <td style="text-align:right; white-space:nowrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleParcel('${p.id}')">แก้ไข</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleParcel('${p.id}')">ลบ</button>
+              </td>
+            </tr>
+          `;
+        }).join("") || `<tr><td colspan="7" class="empty-state">ยังไม่มีรายการพัสดุรับเข้าประจำวันนี้</td></tr>`;
       }
 
-      // Matched houses summary Tbody (Tab 2)
+      // Matched Houses Summary Table (Tab 2)
       const matchedTbody = document.getElementById("matchedHousesTbody");
       if (matchedTbody) {
         const matchedList = buildMatchedHousesSummary();
-        matchedTbody.innerHTML = matchedList.map(item => `\n          <tr>\n            <td style="text-align:center;"><input type="checkbox" class="matched-house-select-chk" data-house="${escapeHtml(item.house)}" style="transform:scale(1.3); cursor:pointer;"></td>\n            <td><strong>${escapeHtml(item.house)}</strong></td>\n            <td>${escapeHtml(item.locationName)}</td>\n            <td>${escapeHtml(item.phone)}</td>\n            <td style="text-align:center; font-weight:800; color:var(--brand);">${item.count} ชิ้น</td>\n            <td><code>${escapeHtml(item.references)}</code></td>\n            <td><span class="badge badge-matched">พร้อมพิมพ์จ่าย</span></td>\n          </tr>\n        `).join("") || `<tr><td colspan="7" class="empty-state">ไม่มีห้องชุดที่พร้อมจ่าย</td></tr>`;
+        matchedTbody.innerHTML = matchedList.map(item => `
+          <tr>
+            <td style="text-align:center;"><input type="checkbox" class="matched-house-select-chk" data-house="${item.house}" style="transform:scale(1.3); cursor:pointer;"></td>
+            <td><strong>${item.house}</strong></td>
+            <td>${item.locationName}</td>
+            <td>${item.phone}</td>
+            <td style="text-align:center; font-weight:800; color:var(--brand);">${item.count} ชิ้น</td>
+            <td><code>${item.references}</code></td>
+            <td><span class="badge badge-matched">พร้อมพิมพ์จ่าย</span></td>
+          </tr>
+        `).join("") || `<tr><td colspan="7" class="empty-state">ยังไม่มีห้องชุดที่จับคู่พัสดุสำเร็จพร้อมจ่าย</td></tr>`;
       }
 
-      // Saved requests Tbody
+      // Saved Requests Table
       const reqTbody = document.getElementById("savedRequestsTbody");
       if (reqTbody) {
-        reqTbody.innerHTML = appState.requests.map(r => `\n          <tr>\n            <td>${r.date}</td><td>${r.time}</td><td><strong>${escapeHtml(r.house)}</strong></td><td>${escapeHtml(r.locationName)}</td><td>${escapeHtml(r.phone)}</td>\n            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พร้อมจ่าย' : 'รอพัสดุ'}</span></td>\n            <td style="text-align:right;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleRequest('${r.id}')">แก้ไข</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleRequest('${r.id}')">ลบ</button>\n            </td>\n          </tr>\n        `).join("") || `<tr><td colspan="7" class="empty-state">ไม่มีรายการคำขอ</td></tr>`;
+        reqTbody.innerHTML = appState.requests.map(r => `
+          <tr>
+            <td>${r.date}</td><td>${r.time}</td><td><strong>${r.house}</strong></td><td>${r.locationName}</td><td>${r.phone}</td>
+            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พร้อมจ่าย' : 'รอพัสดุ'}</span></td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleRequest('${r.id}')">แก้ไข</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleRequest('${r.id}')">ลบ</button>
+            </td>
+          </tr>
+        `).join("") || `<tr><td colspan="7" class="empty-state">ไม่มีรายการคำขอ</td></tr>`;
       }
 
-      // Locations Tbody
+      // Locations Table
       const locTbody = document.getElementById("locationsTbody");
       if (locTbody) {
-        locTbody.innerHTML = appState.locations.map(l => `\n          <tr>\n            <td><strong>${escapeHtml(l.name)}</strong></td>\n            <td><span class="badge ${l.requirePhone ? 'badge-req' : 'badge-opt'}">${l.requirePhone ? 'บังคับกรอกเบอร์โทร' : 'ไม่ต้องกรอก'}</span></td>\n            <td style="text-align:right;">\n              <button type="button" class="btn btn-secondary btn-sm" onclick="editLocation('${l.id}')">แก้ไข</button>\n              <button type="button" class="btn btn-danger btn-sm" onclick="deleteLocation('${l.id}')">ลบ</button>\n            </td>\n          </tr>\n        `).join("");
+        locTbody.innerHTML = appState.locations.map(l => `
+          <tr>
+            <td><strong>${l.name}</strong></td>
+            <td><span class="badge ${l.requirePhone ? 'badge-req' : 'badge-opt'}">${l.requirePhone ? 'บังคับกรอกเบอร์โทร' : 'ไม่ต้องกรอก'}</span></td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="editLocation('${l.id}')">แก้ไข</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="deleteLocation('${l.id}')">ลบ</button>
+            </td>
+          </tr>
+        `).join("");
       }
 
-      // Settings Sub-tab 5 requests history Tbody
+      // Settings Sub-tab 5 Requests History Table
       const histTbody = document.getElementById("settingsRequestsHistoryTbody");
       if (histTbody) {
-        histTbody.innerHTML = appState.requests.map(r => `\n          <tr>\n            <td>📅 ${r.date}</td><td>${r.time}</td><td><strong>${escapeHtml(r.house)}</strong></td><td>${escapeHtml(r.locationName)}</td><td>${escapeHtml(r.phone)}</td>\n            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พัสดุพร้อมจ่าย' : 'ยังไม่มีพัสดุ'}</span></td>\n          </tr>\n        `).join("") || `<tr><td colspan="6" class="empty-state">ยังไม่มีประวัติคำขอ</td></tr>`;
+        histTbody.innerHTML = appState.requests.map(r => `
+          <tr>
+            <td>📅 ${r.date}</td><td>${r.time}</td><td><strong>${r.house}</strong></td><td>${r.locationName}</td><td>${r.phone}</td>
+            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พัสดุพร้อมจ่าย' : 'ยังไม่มีพัสดุ'}</span></td>
+          </tr>
+        `).join("") || `<tr><td colspan="6" class="empty-state">ยังไม่มีประวัติคำขอ</td></tr>`;
       }
 
+      // Houses Chip Container
       document.getElementById("houseCountLabel").textContent = appState.houses.length;
       const chipsBox = document.getElementById("houseChipContainer");
       if (chipsBox) {
-        chipsBox.innerHTML = appState.houses.map(h => `<span class="house-chip">${escapeHtml(h)}<button type="button" onclick="removeSingleHouse('${escapeHtml(h)}')">×</button></span>`).join("");
+        chipsBox.innerHTML = appState.houses.map(h => `<span class="house-chip">${h}<button type="button" onclick="removeSingleHouse('${h}')" title="ลบ">×</button></span>`).join("");
       }
 
+      renderConnectionLogs();
       renderA4ReportPreview();
       renderReportHistoryTable();
     }
 
-    // ==================== CLONE APP ====================
-    function handleSaveAndVerifyCloneGasUrl() {
-      const url = sanitizeInput(document.getElementById("cloneGasUrlInput").value);
-      appState.gasUrl = url;
-      saveStateToStorage(false);
-      renderAll();
-      showNoticeModal("บันทึกสำเร็จ", url ? "บันทึก URL สำหรับแอพสำเนาเรียบร้อยแล้ว" : "ตั้งค่าแอพสำเนาแบบใช้งานในเครื่องเรียบร้อยแล้ว");
-    }
-
-    function handlePreviewClonedMode() {
-      appState.isClonedInstance = true;
-      saveStateToStorage(false);
-      switchSettingsSubTab("subTabTelegram");
-      renderAll();
-      showNoticeModal("สลับสำเร็จ", "เปิดจำลองโหมดสำเนาเรียบร้อย");
-    }
-
-    function handleGenerateClonedAppFile() {
-      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value) || "ระบบจัดการและแจ้งรับพัสดุ";
-      const mode = document.getElementById("cloneDataModeSelect").value;
-      const cloneUrl = sanitizeInput(document.getElementById("cloneGasUrlInput").value);
-
-      appState.gasUrl = cloneUrl || appState.gasUrl;
-      appState.projectName = title;
-
-      const cloned = JSON.parse(JSON.stringify(appState));
-      cloned.isClonedInstance = true;
-      cloned.gasUrl = appState.gasUrl;
-      cloned.projectName = title;
-
-      if (mode === "config_only") {
-        cloned.requests = [];
-        cloned.parcels = [];
-        cloned.latestSubmittedRequest = null;
-      }
-
-      let source = document.documentElement.outerHTML;
-      source = source.replace(/isClonedInstance:\s*false/, "isClonedInstance: true");
-      source = source.replace(/gasUrl:\s*".*?"/, `gasUrl: ${JSON.stringify(appState.gasUrl)}`);
-      source = source.replace(/projectName:\s*".*?"/, `projectName: ${JSON.stringify(title)}`);
-
-      const b = new Blob(["<!doctype html>
-" + source], { type: "text/html;charset=utf-8" });
-      const u = URL.createObjectURL(b);
-      const a = document.createElement("a");
-      a.href = u;
-      a.download = `Juristic_Parcel_App_${title.replace(/[^a-zA-Z0-9ก-๙_-]/g, "_")}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(u);
-    }
-
-    // ==================== REAL-TIME CLOCK & AUTOMATION ====================
-    function startClockAndAutomationLoop() {
-      const updateTick = () => {
-        const now = new Date();
-        const timeStr = getCurrentTimeString();
-        const clockEl = document.getElementById("clockDisplay");
-        if (clockEl) clockEl.textContent = timeStr;
-
-        const today = getTodayDateString();
-        const h = now.getHours();
-        const m = now.getMinutes();
-
-        if (h === 19 && m === 0 && lastAutoCleared19Date !== today) {
-          lastAutoCleared19Date = today;
-          if (appState.parcels.length > 0) {
-            appState.parcels = [];
-            reconcileRequestsAndParcels();
-            saveStateToStorage(true);
-            renderAll();
-          }
-        }
-        if (h === 21 && m === 0 && lastAutoCleared21Date !== today) {
-          lastAutoCleared21Date = today;
-          if (appState.requests.some(r => r.matched)) {
-            appState.requests = appState.requests.filter(r => !r.matched);
-            saveStateToStorage(true);
-            renderAll();
-          }
-        }
-      };
-      updateTick();
-      setInterval(updateTick, 1000);
-
-      setInterval(() => {
-        if (!isAutoSyncPaused && appState.gasUrl) {
-          fetchFromGoogleSheetsCloud(false);
-        }
-      }, 20000);
-    }
-
-    window.addEventListener("beforeunload", () => {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState)); } catch (e) {}
-    });
-
+    // ==================== INITIALIZATION ====================
     window.addEventListener("DOMContentLoaded", () => {
-      loadStateFromStorage();
-      const today = getTodayDateString();
-      if (document.getElementById("dashInputDate")) document.getElementById("dashInputDate").value = today;
-      if (document.getElementById("dashInputMonth")) document.getElementById("dashInputMonth").value = today.slice(0, 7);
-      if (document.getElementById("parcelDateInput")) document.getElementById("parcelDateInput").value = today;
-      if (document.getElementById("admReqDateInput")) document.getElementById("admReqDateInput").value = today;
-
-      const yearSel = document.getElementById("dashInputYear");
-      if (yearSel) {
-        const curY = new Date().getFullYear();
-        yearSel.innerHTML = [curY - 1, curY, curY + 1].map(y => `<option value="${y}" ${y === curY ? "selected" : ""}>${y + 543} (${y})</option>`).join("");
+      const hasLocal = loadStateFromStorage();
+      if (!hasLocal && window.__CLONED_INITIAL_STATE__) {
+        Object.assign(appState, window.__CLONED_INITIAL_STATE__);
+        saveStateToStorage();
       }
 
+      const today = getTodayDateString();
+      const pDate = document.getElementById("parcelDateInput");
+      const rDate = document.getElementById("admReqDateInput");
+      if (pDate) pDate.value = today;
+      if (rDate) rDate.value = today;
+
+      initDashboardFilterInputs();
       isAdminAuthenticated = false;
-      switchPortalMode('user');
+      switchPortalMode("user");
       renderAdminAuthView();
       renderAll();
       runSlideshowInterval();
-      startClockAndAutomationLoop();
+      runTextTickerInterval();
+      startRealTimeClockAndAutomation();
+      startAutoCloudSyncTimer();
+
+      if (appState.gasUrl) {
+        fetchFromGoogleSheetsCloud(false);
+      }
     });
   </script>
 </body>
