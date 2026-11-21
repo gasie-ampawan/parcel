@@ -319,6 +319,11 @@
               <input type="tel" id="reqPhoneInput" class="input" placeholder="เช่น 081-234-5678">
               <span class="form-hint">จำเป็นสำหรับจุดรับนี้เพื่อส่งรหัส OTP / แจ้งเตือน</span>
             </div>
+            <div class="form-group">
+              <label class="form-label" for="reqNoteInput">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
+              <input type="text" id="reqNoteInput" class="input" placeholder="">
+              <span class="form-hint">ระบุข้อความฝากถึงเจ้าหน้าที่นิติบุคคล (ไม่บังคับกรอก)</span>
+            </div>
           </div>
           <div id="userFormError" style="color: var(--danger); font-size: 13.5px; font-weight: 700; margin-bottom: 12px;" class="hidden"></div>
           <button type="submit" id="btnSubmitUserReq" class="btn btn-primary">🚀 ส่งคำขอรับพัสดุ (Auto-Sync & แจ้งเตือน)</button>
@@ -580,6 +585,10 @@
                   <label class="form-label" for="admReqDateInput">วันที่แจ้งขอรับ</label>
                   <input type="date" id="admReqDateInput" class="input" required>
                 </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" for="admReqNoteInput">หมายเหตุเพิ่มเติม</label>
+                  <input type="text" id="admReqNoteInput" class="input" placeholder="">
+                </div>
               </div>
               <div style="display:flex; justify-content:flex-end; gap: 8px; margin-top: 12px;">
                 <button type="button" id="cancelEditReqBtn" class="btn btn-secondary btn-sm hidden" onclick="resetSingleRequestForm()">ยกเลิก</button>
@@ -589,7 +598,7 @@
             <div class="table-wrap">
               <table>
                 <thead>
-                  <tr><th>วันที่แจ้ง</th><th>เวลา</th><th>บ้านเลขที่</th><th>จุดรับพัสดุที่ต้องการ</th><th>เบอร์โทรศัพท์</th><th>สถานะการจับคู่พัสดุ</th><th style="text-align:right;">จัดการ</th></tr>
+                  <tr><th>วันที่แจ้ง</th><th>เวลา</th><th>บ้านเลขที่</th><th>จุดรับพัสดุที่ต้องการ</th><th>เบอร์โทรศัพท์</th><th>หมายเหตุ</th><th>สถานะการจับคู่พัสดุ</th><th style="text-align:right;">จัดการ</th></tr>
                 </thead>
                 <tbody id="savedRequestsTbody"></tbody>
               </table>
@@ -1701,6 +1710,7 @@ function doPost(e) {
       const houseInput = document.getElementById("reqHouseInput");
       const locSelect = document.getElementById("reqLocationSelect");
       const phoneInput = document.getElementById("reqPhoneInput");
+      const noteInput = document.getElementById("reqNoteInput");
       const submitBtn = document.getElementById("btnSubmitUserReq");
 
       const formattedHouse = formatHouseNumber(houseInput.value);
@@ -1709,6 +1719,7 @@ function doPost(e) {
       const selectedLocationName = sanitizeInput(locSelect.value);
       const locObj = appState.locations.find(l => String(l.name).trim() === String(selectedLocationName).trim());
       const phoneVal = sanitizeInput(phoneInput.value);
+      const noteVal = sanitizeInput(noteInput ? noteInput.value : "");
 
       if (!formattedHouse || !selectedLocationName) {
         errBox.textContent = "⚠️ กรุณากรอกบ้านเลขที่และเลือกจุดรับพัสดุ";
@@ -1727,6 +1738,7 @@ function doPost(e) {
         house: formattedHouse,
         locationName: selectedLocationName,
         phone: phoneVal || "-",
+        note: noteVal || "-",
         date: getTodayDateString(),
         time: getCurrentTimeString(),
         matched: false
@@ -1741,6 +1753,7 @@ function doPost(e) {
       houseInput.value = "";
       locSelect.value = "";
       phoneInput.value = "";
+      if (noteInput) noteInput.value = "";
       handlePickupLocationChange();
 
       // ส่งแจ้งเตือน Telegram จริง (แปลงอักขระ HTML ปลอดภัย 100%)
@@ -1751,14 +1764,16 @@ function doPost(e) {
         const parcelStatusText = matchedParcels.length > 0
           ? `✅ มีพัสดุในระบบแล้ว (${matchedParcels.length} ชิ้น: ${escapeTelegramHtml(matchedParcels.map(p => p.carrier).join(", "))})`
           : `⏳ ยังไม่พบรายการพัสดุในระบบ`;
+        const noteLine = newReq.note && newReq.note !== "-" ? `\n📝 <b>หมายเหตุ:</b> ${escapeTelegramHtml(newReq.note)}` : "";
 
         const tgMsg =
           `📦 <b>มีคำขอแจ้งรับพัสดุใหม่!</b>\n` +
           `🏢 <b>โครงการ:</b> ${escapeTelegramHtml(appState.projectName)}\n` +
           `🏠 <b>บ้านเลขที่:</b> <code>${escapeTelegramHtml(newReq.house)}</code>\n` +
           `📍 <b>จุดรับพัสดุ:</b> ${escapeTelegramHtml(newReq.locationName)}\n` +
-          `📞 <b>เบอร์โทร:</b> ${escapeTelegramHtml(newReq.phone)}\n` +
-          `🕒 <b>เวลาแจ้ง:</b> ${escapeTelegramHtml(newReq.date)} ${escapeTelegramHtml(newReq.time)}\n` +
+          `📞 <b>เบอร์โทร:</b> ${escapeTelegramHtml(newReq.phone)}` +
+          noteLine +
+          `\n🕒 <b>เวลาแจ้ง:</b> ${escapeTelegramHtml(newReq.date)} ${escapeTelegramHtml(newReq.time)}\n` +
           `📋 <b>สถานะพัสดุ:</b> ${parcelStatusText}`;
 
         const tgRes = await sendTelegramNotification(tgMsg);
@@ -1797,6 +1812,7 @@ function doPost(e) {
         <div><strong>บ้านเลขที่:</strong> ${latest.house}</div>
         <div><strong>จุดรับพัสดุ:</strong> ${latest.locationName}</div>
         <div><strong>เบอร์โทรศัพท์:</strong> ${latest.phone}</div>
+        <div><strong>หมายเหตุเพิ่มเติม:</strong> ${latest.note || "-"}</div>
         <div><strong>เวลาที่ส่งคำขอ:</strong> ${latest.date} ${latest.time}</div>
         <div><strong>สถานะ:</strong> ${latest.matched ? "✅ พบพัสดุแล้วพร้อมจ่าย" : "⏳ รอเจ้าหน้าที่ตรวจสอบ"}</div>
       `;
@@ -2069,14 +2085,15 @@ function doPost(e) {
       const locationName = sanitizeInput(document.getElementById("admReqLocationSelect").value);
       const phone = sanitizeInput(document.getElementById("admReqPhoneInput").value) || "-";
       const date = sanitizeInput(document.getElementById("admReqDateInput").value) || getTodayDateString();
+      const note = sanitizeInput(document.getElementById("admReqNoteInput")?.value) || "-";
 
       if (!house || !locationName) return;
       if (editId) {
         const idx = appState.requests.findIndex(r => r.id === editId);
-        if (idx !== -1) appState.requests[idx] = { ...appState.requests[idx], house, locationName, phone, date };
+        if (idx !== -1) appState.requests[idx] = { ...appState.requests[idx], house, locationName, phone, date, note };
         showToast("แก้ไขคำขอแล้ว", "✅");
       } else {
-        appState.requests.unshift({ id: "req-" + Date.now(), house, locationName, phone, date, time: getCurrentTimeString(), matched: false });
+        appState.requests.unshift({ id: "req-" + Date.now(), house, locationName, phone, note, date, time: getCurrentTimeString(), matched: false });
         showToast("เพิ่มรายการคำขอแล้ว", "✅");
       }
       resetSingleRequestForm();
@@ -2093,6 +2110,7 @@ function doPost(e) {
       document.getElementById("admReqLocationSelect").value = req.locationName;
       document.getElementById("admReqPhoneInput").value = req.phone === "-" ? "" : req.phone;
       document.getElementById("admReqDateInput").value = req.date;
+      if (document.getElementById("admReqNoteInput")) document.getElementById("admReqNoteInput").value = (!req.note || req.note === "-") ? "" : req.note;
       document.getElementById("saveReqBtn").textContent = "💾 บันทึกการแก้ไข";
       document.getElementById("cancelEditReqBtn").classList.remove("hidden");
     }
@@ -2103,6 +2121,7 @@ function doPost(e) {
       document.getElementById("admReqLocationSelect").value = "";
       document.getElementById("admReqPhoneInput").value = "";
       document.getElementById("admReqDateInput").value = getTodayDateString();
+      if (document.getElementById("admReqNoteInput")) document.getElementById("admReqNoteInput").value = "";
       document.getElementById("saveReqBtn").textContent = "➕ เพิ่มรายการคำขอ";
       document.getElementById("cancelEditReqBtn").classList.add("hidden");
     }
@@ -2167,8 +2186,8 @@ function doPost(e) {
     }
 
     function exportRequestsToExcel() {
-      const aoa = [["วันที่", "เวลา", "บ้านเลขที่", "จุดรับพัสดุ", "เบอร์โทร", "สถานะ"]];
-      appState.requests.forEach(r => aoa.push([r.date, r.time, r.house, r.locationName, r.phone, r.matched ? "พัสดุพร้อมจ่าย" : "ยังไม่มีพัสดุ"]));
+      const aoa = [["วันที่", "เวลา", "บ้านเลขที่", "จุดรับพัสดุ", "เบอร์โทร", "หมายเหตุ", "สถานะ"]];
+      appState.requests.forEach(r => aoa.push([r.date, r.time, r.house, r.locationName, r.phone, r.note || "-", r.matched ? "พัสดุพร้อมจ่าย" : "ยังไม่มีพัสดุ"]));
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "RequestsHistory");
@@ -3546,14 +3565,14 @@ function doPost(e) {
       if (reqTbody) {
         reqTbody.innerHTML = appState.requests.map(r => `
           <tr>
-            <td>${r.date}</td><td>${r.time}</td><td><strong>${r.house}</strong></td><td>${r.locationName}</td><td>${r.phone}</td>
+            <td>${r.date}</td><td>${r.time}</td><td><strong>${r.house}</strong></td><td>${r.locationName}</td><td>${r.phone}</td><td>${r.note || "-"}</td>
             <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พร้อมจ่าย' : 'รอพัสดุ'}</span></td>
             <td style="text-align:right; white-space:nowrap;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleRequest('${r.id}')">แก้ไข</button>
               <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleRequest('${r.id}')">ลบ</button>
             </td>
           </tr>
-        `).join("") || `<tr><td colspan="7" class="empty-state">ไม่มีรายการคำขอ</td></tr>`;
+        `).join("") || `<tr><td colspan="8" class="empty-state">ไม่มีรายการคำขอ</td></tr>`;
       }
 
       // Locations Table
