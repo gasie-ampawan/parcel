@@ -1300,8 +1300,14 @@ function doPost(e) {
     function sanitizeInput(rawVal) {
       if (rawVal === null || rawVal === undefined) return "";
       let str = String(rawVal).trim().replace(/[<>]/g, "");
-      if (/^[=+\-@]/.test(str)) str = "'" + str;
+      if (/^[=+@]/.test(str) || (/^-/.test(str) && !/^-\d+$/.test(str))) {
+        str = "'" + str;
+      }
       return str;
+    }
+
+    function cleanTelegramChatId(rawId) {
+      return String(rawId || "").trim().replace(/^'+/, "");
     }
 
     function getTodayDateString() {
@@ -1489,7 +1495,7 @@ function doPost(e) {
     // ==================== TELEGRAM REAL API ====================
     async function sendTelegramMessage(messageHtml) {
       const token = (appState.telegram?.botToken || "").trim();
-      const chatId = (appState.telegram?.chatId || "").trim();
+      const chatId = cleanTelegramChatId(appState.telegram?.chatId);
       if (!token || !chatId) {
         return { ok: false, error: "ยังไม่ได้ตั้งค่า Bot Token หรือ Chat ID" };
       }
@@ -1572,20 +1578,21 @@ function doPost(e) {
     }
 
     function selectTelegramChatId(chatId) {
-      document.getElementById("tgChatIdInput").value = chatId;
+      document.getElementById("tgChatIdInput").value = cleanTelegramChatId(chatId);
       document.getElementById("tgDiscoveredChatsBox").classList.add("hidden");
-      showToast(`เลือก Chat ID: ${chatId} แล้ว`);
+      showToast(`เลือก Chat ID: ${cleanTelegramChatId(chatId)} แล้ว`);
     }
 
     async function handleTestTelegramConnection() {
       const token = sanitizeInput(document.getElementById("tgBotTokenInput").value);
-      const chatId = sanitizeInput(document.getElementById("tgChatIdInput").value);
+      const chatId = cleanTelegramChatId(document.getElementById("tgChatIdInput").value);
       if (!token || !chatId) {
         showNoticeModal("ข้อมูลไม่ครบถ้วน", "กรุณาระบุทั้ง Bot Token และ Chat ID ก่อนทดสอบส่งข้อความ");
         return;
       }
       appState.telegram.botToken = token;
       appState.telegram.chatId = chatId;
+      document.getElementById("tgChatIdInput").value = chatId;
       saveStateToStorage(false);
 
       const btn = document.getElementById("btnTestTelegram");
@@ -2975,8 +2982,10 @@ function doPost(e) {
 
     function handleSaveTelegramConfig(e) {
       e.preventDefault();
+      const cleanChatId = cleanTelegramChatId(document.getElementById("tgChatIdInput").value);
       appState.telegram.botToken = sanitizeInput(document.getElementById("tgBotTokenInput").value);
-      appState.telegram.chatId = sanitizeInput(document.getElementById("tgChatIdInput").value);
+      appState.telegram.chatId = cleanChatId;
+      document.getElementById("tgChatIdInput").value = cleanChatId;
       appState.telegram.enabled = document.getElementById("tgEnableCheck").checked;
       saveStateToStorage(true);
       renderAll();
@@ -3229,7 +3238,7 @@ function doPost(e) {
       const tgChat = document.getElementById("tgChatIdInput");
       const tgChk = document.getElementById("tgEnableCheck");
       if (tgTok && document.activeElement !== tgTok) tgTok.value = appState.telegram?.botToken || "";
-      if (tgChat && document.activeElement !== tgChat) tgChat.value = appState.telegram?.chatId || "";
+      if (tgChat && document.activeElement !== tgChat) tgChat.value = cleanTelegramChatId(appState.telegram?.chatId);
       if (tgChk) tgChk.checked = appState.telegram ? appState.telegram.enabled !== false : true;
 
       const c19 = document.getElementById("autoClear1900Check");
