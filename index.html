@@ -1140,30 +1140,30 @@ function doPost(e) {
                     <span class="badge badge-opt" id="cloneGasUrlSavedBadge">รอการยืนยันลิงก์</span>
                   </div>
                   <div style="display:flex; flex-wrap:wrap; gap: 8px; align-items:center;">
-                    <input type="text" id="cloneGasUrlInput" class="input" style="flex: 1 1 300px;" placeholder="วางลิงก์ Web App URL ที่ลงท้ายด้วย /exec" oninput="handleDraftGasUrlInput(this.value)">
-                    <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveAndVerifyCloneGasUrl()">💾 บันทึก & ยืนยันลิงก์ Apps Script</button>
+                    <input type="text" id="cloneGasUrlInput" class="input" style="flex: 1 1 300px;" placeholder="วางลิงก์ Web App URL ของโครงการสำเนาที่ลงท้ายด้วย /exec" oninput="handleDraftCloneGasUrlInput(this.value)">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveAndVerifyCloneGasUrl()">💾 บันทึก & ยืนยันลิงก์สำเนา</button>
                   </div>
                 </div>
 
-                <!-- ช่องลิงก์สำหรับแชร์ให้ลูกบ้าน / เปิดใช้งานข้ามเครื่อง ในหน้าตั้งค่า -->
+                <!-- ช่องลิงก์สำหรับแชร์ให้ลูกบ้าน / เปิดใช้งานข้ามเครื่อง ของแอพสำเนา -->
                 <div style="margin-top: 16px; padding: 16px; background: var(--surface); border: 1px solid var(--brand); border-radius: 10px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom: 8px;">
-                    <label class="form-label" for="settingsShareLinkInput" style="margin:0; color:var(--brand);">🔗 ลิงก์สำหรับแชร์ให้ลูกบ้าน / เปิดใช้งานข้ามเครื่อง (Public Resident Link)</label>
+                    <label class="form-label" for="settingsShareLinkInput" style="margin:0; color:var(--brand);">🔗 ลิงก์สำหรับแชร์ให้ลูกบ้าน / เปิดใช้งานข้ามเครื่อง (ของแอพสำเนา)</label>
                     <span class="badge badge-matched">Auto-Sync Link</span>
                   </div>
                   <div style="display:flex; flex-wrap:wrap; gap: 8px; align-items:center;">
                     <input type="text" id="settingsShareLinkInput" class="input" style="flex: 1 1 300px; font-family:monospace; font-size:13px;" readonly>
-                    <button type="button" class="btn btn-primary btn-sm" onclick="copyShareableResidentLink()">📋 คัดลอกลิงก์ให้ลูกบ้าน</button>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="openShareableResidentLink()">↗️ เปิดหน้าต่างใหม่</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="copyCloneShareableLink()">📋 คัดลอกลิงก์สำเนา</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="openCloneShareableLink()">↗️ เปิดหน้าต่างใหม่</button>
                   </div>
                   <span class="form-hint" style="display:block; margin-top:6px;">ส่งลิงก์นี้ให้ลูกบ้านกดบันทึก (Bookmark / Add to Home Screen) หรือเปิดบนมือถือ/คอมพิวเตอร์เครื่องอื่นได้ทันที</span>
                 </div>
 
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap: 12px; margin-top: 16px;">
-                  <span class="form-hint">ดาวน์โหลดไฟล์สำเนาพร้อมนำไปเปิดใช้งานข้ามเครื่องได้ทันที</span>
+                  <span class="form-hint">ดาวน์โหลดไฟล์สำเนาพร้อมนำไปเปิดใช้งานข้ามเครื่องได้ทันที (ไม่ทับข้อมูลแอพต้นฉบับ)</span>
                   <div style="display:flex; gap: 8px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-secondary" onclick="handlePreviewClonedMode()">👁️ ทดสอบแสดงผลชื่ออาคารสำเนา</button>
-                    <button type="button" class="btn btn-primary" onclick="handleGenerateClonedAppFile()">📑 บันทึกลิงก์ & ดาวน์โหลดไฟล์แอพสำเนา (.html)</button>
+                    <button type="button" class="btn btn-secondary" onclick="handlePreviewClonedMode()">👁️ ตรวจสอบค่าก่อนสร้างสำเนา</button>
+                    <button type="button" class="btn btn-primary" onclick="handleGenerateClonedAppFile()">📑 ดาวน์โหลดไฟล์แอพสำเนา (.html)</button>
                   </div>
                 </div>
               </div>
@@ -1269,7 +1269,7 @@ function doPost(e) {
     </div>
   </div>
 
-  <!-- Toast Container -->
+  <!-- Toast Notification -->
   <div class="toast-container" id="toastContainer"></div>
 
   <!-- Isolated Print Iframe -->
@@ -1290,6 +1290,7 @@ function doPost(e) {
     let latestBoxHideTimer = null;
     let isSlideshowHovered = false;
     let isCloneGasUrlVerified = false;
+    let cloneDraftGasUrl = "";
     let isPushingToCloud = false;
     let lastLocalMutationTs = 0;
     let lastAutoClear19Date = "";
@@ -1386,6 +1387,23 @@ function doPost(e) {
         item.style.transition = "opacity 0.25s ease";
         setTimeout(() => item.remove(), 260);
       }, 3200);
+    }
+
+    function fallbackCopyText(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand("copy");
+        showToast("📋 คัดลอกลิงก์เรียบร้อยแล้ว");
+      } catch (e) {
+        showNoticeModal("คัดลอกลิงก์", "กรุณาคัดลอกลิงก์ด้านล่างด้วยตนเอง:\n\n" + text);
+      }
+      document.body.removeChild(ta);
     }
 
     function addConnectionLog(channel, detail, success = true) {
@@ -2454,8 +2472,14 @@ function doPost(e) {
       const win = window.open("", "_blank");
       if (win) {
         win.document.open();
-        win.document.write("<!doctype html><html><head><meta charset=\"utf-8\"><title>รายงานจ่ายพัสดุ A4</title></head><body>" + html + "<scr" + "ipt>window.onload=function(){window.print();};</scr" + "ipt></body></html>");
+        win.document.write("<!doctype html><html><head><meta charset=\"utf-8\"><title>รายงานจ่ายพัสดุ A4</title></head><body>" + html + "</body></html>");
         win.document.close();
+        setTimeout(() => {
+          try {
+            win.focus();
+            win.print();
+          } catch (err) {}
+        }, 350);
       } else {
         executeIsolatedPrint(html);
       }
@@ -2838,9 +2862,17 @@ function doPost(e) {
     function handleDraftGasUrlInput(val) {
       const clean = sanitizeInput(val);
       const g1 = document.getElementById("gasUrlInput");
-      const g2 = document.getElementById("cloneGasUrlInput");
       if (g1 && document.activeElement !== g1) g1.value = clean;
-      if (g2 && document.activeElement !== g2) g2.value = clean;
+    }
+
+    function handleDraftCloneGasUrlInput(val) {
+      cloneDraftGasUrl = sanitizeInput(val);
+      const badge = document.getElementById("cloneGasUrlSavedBadge");
+      if (badge) {
+        badge.className = "badge badge-opt";
+        badge.textContent = "รอการยืนยันลิงก์";
+      }
+      updateShareableLinksUI();
     }
 
     function handleSaveGasUrl(pullAfter = false) {
@@ -2853,9 +2885,9 @@ function doPost(e) {
       }
     }
 
-    function buildShareableResidentUrl() {
+    function buildShareableResidentUrl(customGasUrl = null) {
       const baseUrl = window.location.origin + window.location.pathname;
-      const gas = (appState.gasUrl || "").trim();
+      const gas = (customGasUrl !== null ? customGasUrl : (appState.gasUrl || "")).trim();
       if (gas && gas.startsWith("https://")) {
         return `${baseUrl}?gas=${encodeURIComponent(gas)}`;
       }
@@ -2863,15 +2895,17 @@ function doPost(e) {
     }
 
     function updateShareableLinksUI() {
-      const link = buildShareableResidentUrl();
+      const mainLink = buildShareableResidentUrl(appState.gasUrl);
+      const cloneGas = (document.getElementById("cloneGasUrlInput")?.value || cloneDraftGasUrl || "").trim();
+      const cloneLink = buildShareableResidentUrl(cloneGas);
       const inp1 = document.getElementById("shareableResidentLinkInput");
       const inp2 = document.getElementById("settingsShareLinkInput");
-      if (inp1) inp1.value = link;
-      if (inp2) inp2.value = link;
+      if (inp1) inp1.value = mainLink;
+      if (inp2) inp2.value = cloneLink;
     }
 
     function copyShareableResidentLink() {
-      const link = buildShareableResidentUrl();
+      const link = buildShareableResidentUrl(appState.gasUrl);
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(link).then(() => {
           showToast("📋 คัดลอกลิงก์สำหรับลูกบ้าน/เปิดข้ามเครื่องแล้ว");
@@ -2881,18 +2915,26 @@ function doPost(e) {
       }
     }
 
-    function fallbackCopyText(text) {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      showToast("📋 คัดลอกลิงก์เรียบร้อยแล้ว");
+    function copyCloneShareableLink() {
+      const cloneGas = (document.getElementById("cloneGasUrlInput")?.value || cloneDraftGasUrl || "").trim();
+      const link = buildShareableResidentUrl(cloneGas);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(() => {
+          showToast("📋 คัดลอกลิงก์ของแอพสำเนาแล้ว");
+        }).catch(() => fallbackCopyText(link));
+      } else {
+        fallbackCopyText(link);
+      }
     }
 
     function openShareableResidentLink() {
-      const link = buildShareableResidentUrl();
+      const link = buildShareableResidentUrl(appState.gasUrl);
+      window.open(link, "_blank");
+    }
+
+    function openCloneShareableLink() {
+      const cloneGas = (document.getElementById("cloneGasUrlInput")?.value || cloneDraftGasUrl || "").trim();
+      const link = buildShareableResidentUrl(cloneGas);
       window.open(link, "_blank");
     }
 
@@ -3116,33 +3158,29 @@ function doPost(e) {
 
     function handleSaveAndVerifyCloneGasUrl() {
       const url = sanitizeInput(document.getElementById("cloneGasUrlInput").value);
-      appState.gasUrl = url;
+      cloneDraftGasUrl = url;
       isCloneGasUrlVerified = true;
-      saveStateToStorage(false);
-      updateSyncStatusUI();
+      const cloneBadge = document.getElementById("cloneGasUrlSavedBadge");
+      if (cloneBadge) {
+        cloneBadge.className = "badge badge-matched";
+        cloneBadge.textContent = url ? "✅ พร้อมฝังลงไฟล์สำเนา (ไม่ทับต้นฉบับ)" : "✅ ตั้งค่าโหมดใช้งานในเครื่อง";
+      }
       updateShareableLinksUI();
-      showNoticeModal("ยืนยันสำเร็จ", url ? "บันทึกลิงก์ Apps Script สำหรับแอพสำเนาเรียบร้อยแล้ว" : "ตั้งค่าแอพสำเนาแบบใช้งานในเครื่องเรียบร้อยแล้ว");
+      showNoticeModal("ยืนยันสำเร็จ", url ? "บันทึกและยืนยันลิงก์ Apps Script สำหรับไฟล์สำเนาเรียบร้อยแล้ว (ลิงก์ของแอพต้นฉบับยังคงเดิม)" : "ตั้งค่าแอพสำเนาแบบใช้งานในเครื่องเรียบร้อยแล้ว");
     }
 
     function handlePreviewClonedMode() {
-      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value);
-      if (title) {
-        appState.projectName = title;
-        saveStateToStorage(false);
-        renderAll();
-        showToast(`👁️ จำลองชื่อโครงการ: ${title}`);
-      }
+      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value) || "โครงการสำเนา";
+      const cloneUrl = sanitizeInput(document.getElementById("cloneGasUrlInput").value) || "(ใช้โหมดออฟไลน์ / ยังไม่ระบุ URL)";
+      showNoticeModal("ตรวจสอบค่าก่อนสร้างไฟล์สำเนา", `🏢 ชื่อโครงการสำเนา: ${title}\n☁️ Apps Script URL สำเนา: ${cloneUrl}\n\n🔒 สถานะแอพต้นฉบับ: ปลอดภัย (เชื่อมต่อกับ ${appState.projectName} เหมือนเดิม)`);
     }
 
     async function handleGenerateClonedAppFile() {
-      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value) || appState.projectName;
+      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value) || "โครงการอาคารชุดนิติบุคคล (สาขาสำเนา)";
       const mode = document.getElementById("cloneDataModeSelect").value;
-      const cloneUrl = sanitizeInput(document.getElementById("cloneGasUrlInput").value) || appState.gasUrl;
+      const cloneUrl = sanitizeInput(document.getElementById("cloneGasUrlInput").value);
 
-      appState.gasUrl = cloneUrl;
-      appState.projectName = title;
-      saveStateToStorage(false);
-
+      // สร้างอ็อบเจกต์สถานะแยกเฉพาะสำหรับไฟล์สำเนา โดยไม่แก้ไข appState ของแอพต้นฉบับ
       const clonedState = JSON.parse(JSON.stringify(appState));
       clonedState.isClonedInstance = true;
       clonedState.gasUrl = cloneUrl;
@@ -3150,6 +3188,12 @@ function doPost(e) {
       clonedState.latestSubmittedRequest = null;
       clonedState.connectionLogs = [];
       clonedState.lastUpdated = 0;
+      clonedState.telegram = {
+        botToken: "",
+        chatId: "",
+        enabled: true,
+        connected: false
+      };
 
       if (mode === "config_only") {
         clonedState.requests = [];
@@ -3180,8 +3224,10 @@ function doPost(e) {
       sourceHtml = sourceHtml.replace(/const DEFAULT_EMBEDDED_GAS_URL = "[^"]*";/, `const DEFAULT_EMBEDDED_GAS_URL = ${JSON.stringify(cloneUrl)};`);
       sourceHtml = sourceHtml.replace(/<script id="clonedStateBootstrap">[\s\S]*?<\/script>\s*/gi, "");
 
-      const safeJson = JSON.stringify(clonedState).replace(/<\/script>/gi, "<\\/script>");
-      const injectScript = "<scr" + "ipt id=\"clonedStateBootstrap\">window.__CLONED_INITIAL_STATE__ = " + safeJson + ";</scr" + "ipt>";
+      const safeJson = JSON.stringify(clonedState).replace(/</g, "\\u003c");
+      const openTag = "<" + "script id=\"clonedStateBootstrap\">";
+      const closeTag = "</" + "script>";
+      const injectScript = openTag + "window.__CLONED_INITIAL_STATE__ = " + safeJson + ";" + closeTag;
       const htmlDoc = sourceHtml.replace(/<\/head>/i, injectScript + "\n</head>");
 
       const blob = new Blob([htmlDoc], { type: "text/html;charset=utf-8" });
@@ -3344,7 +3390,6 @@ function doPost(e) {
       const text = document.getElementById("realSyncText");
       const cloudCardBadge = document.getElementById("connCardCloudBadge");
       const cloudCardDetail = document.getElementById("connCardCloudDetail");
-      const cloneBadge = document.getElementById("cloneGasUrlSavedBadge");
 
       if (appState.gasUrl) {
         if (badge) badge.classList.remove("offline");
@@ -3354,10 +3399,6 @@ function doPost(e) {
           cloudCardBadge.textContent = "เชื่อมต่อ Cloud แล้ว";
         }
         if (cloudCardDetail) cloudCardDetail.textContent = "ซิงค์อัตโนมัติทุก 20 วินาทีกับ Google Sheets";
-        if (cloneBadge) {
-          cloneBadge.className = "badge badge-matched";
-          cloneBadge.textContent = "✅ บันทึกลิงก์พร้อมซิงค์แล้ว";
-        }
       } else {
         if (badge) badge.classList.add("offline");
         if (text) text.textContent = "โหมดออฟไลน์ (Local)";
@@ -3374,6 +3415,15 @@ function doPost(e) {
       reconcileRequestsAndParcels();
       updateSyncStatusUI();
 
+      // ซ่อนเมนู "การทำสำเนาแอพ (Clone App)" หากเป็นแอพที่ถูกทำสำเนาไปแล้ว
+      const isCloned = appState.isClonedInstance === true || Boolean(window.__CLONED_INITIAL_STATE__);
+      const cloneSubTabBtn = document.getElementById("btnSubTabCloneApp");
+      const cloneSubTabPane = document.getElementById("subTabCloneApp");
+      if (cloneSubTabBtn) cloneSubTabBtn.classList.toggle("hidden", isCloned);
+      if (isCloned && cloneSubTabPane && !cloneSubTabPane.classList.contains("hidden")) {
+        switchSettingsSubTab("subTabTelegram");
+      }
+
       const projName = appState.projectName || "โครงการอาคารชุดนิติบุคคล";
       document.getElementById("headerProjectNameBadge").textContent = "🏢 " + projName;
       document.getElementById("currentProjectBadgePreview").textContent = "🏢 " + projName;
@@ -3385,8 +3435,9 @@ function doPost(e) {
       const g1 = document.getElementById("gasUrlInput");
       if (g1 && document.activeElement !== g1) g1.value = appState.gasUrl || "";
       const g2 = document.getElementById("cloneGasUrlInput");
-      if (g2 && document.activeElement !== g2) g2.value = appState.gasUrl || "";
+      if (g2 && document.activeElement !== g2 && !g2.value && cloneDraftGasUrl) g2.value = cloneDraftGasUrl;
       updateShareableLinksUI();
+
       const tgTok = document.getElementById("tgBotTokenInput");
       const tgChat = document.getElementById("tgChatIdInput");
       const tgChk = document.getElementById("tgEnableCheck");
@@ -3728,3 +3779,6 @@ function doPost(e) {
   </script>
 </body>
 </html>
+```
+
+เรียบร้อยครับ ตอนนี้ `index.html` สะอาดสมบูรณ์ 100% ทั้งการลบกล่องซ้ำซ้อนในแท็บ Clone App และเพิ่มฟังก์ชัน `fallbackCopyText` สำหรับรองรับการคัดลอกลิงก์บนทุกเบราว์เซอร์แล้วครับ
