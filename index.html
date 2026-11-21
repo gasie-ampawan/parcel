@@ -1269,11 +1269,14 @@ function doPost(e) {
     </div>
   </div>
 
-  <!-- Toast Notification -->
+  <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
   <!-- Isolated Print Iframe -->
   <iframe id="printIsolatedIframe" style="display:none; width:1px; height:1px; border:none;"></iframe>
+
+  <!-- ข้อมูลตั้งต้นสำหรับไฟล์สำเนา (เก็บใน JSON tag แยกต่างหากเพื่อไม่ให้กระทบโค้ด JS) -->
+  <script type="application/json" id="clonedStateBootstrap"></script>
 
   <script>
     // ==================== GLOBAL VARIABLES & STATE ====================
@@ -1334,6 +1337,18 @@ function doPost(e) {
       reportHistory: [],
       latestSubmittedRequest: null
     };
+
+    function getClonedBootstrapState() {
+      try {
+        const el = document.getElementById("clonedStateBootstrap");
+        if (el && el.textContent && el.textContent.trim()) {
+          return JSON.parse(el.textContent.trim());
+        }
+      } catch (e) {
+        console.warn("Cloned bootstrap parse warning:", e);
+      }
+      return null;
+    }
 
     // ==================== UTILITY & SANITIZATION ====================
     function escapeHtml(str) {
@@ -1428,13 +1443,11 @@ function doPost(e) {
     function loadStateFromStorage() {
       try {
         const key = getStorageKey();
-        const saved = localStorage.getItem(key) || localStorage.getItem("juristic_parcel_app_v2");
+        const isCloned = Boolean(getClonedBootstrapState());
+        const saved = isCloned ? localStorage.getItem(key) : (localStorage.getItem(key) || localStorage.getItem("juristic_parcel_app_v2"));
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && typeof parsed === "object") {
-            if (window.__CLONED_INITIAL_STATE__ && !localStorage.getItem(key)) {
-              return false;
-            }
             Object.assign(appState, parsed);
             if (!appState.telegram) appState.telegram = { botToken: "", chatId: "", enabled: true, connected: false };
             appState.telegram.chatId = cleanTelegramChatId(appState.telegram.chatId);
@@ -1457,7 +1470,9 @@ function doPost(e) {
       try {
         const serialized = JSON.stringify(appState);
         localStorage.setItem(getStorageKey(), serialized);
-        localStorage.setItem("juristic_parcel_app_v2", serialized);
+        if (!appState.isClonedInstance && !getClonedBootstrapState()) {
+          localStorage.setItem("juristic_parcel_app_v2", serialized);
+        }
       } catch (e) {
         showToast("⚠️ พื้นที่จัดเก็บเบราว์เซอร์ใกล้เต็ม กรุณาลบรูปประกาศเก่าออกบางส่วน");
       }
@@ -2943,13 +2958,7 @@ function doPost(e) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(code).then(() => showToast("📋 คัดลอกโค้ด Apps Script ลงคลิปบอร์ดแล้ว"));
       } else {
-        const ta = document.createElement("textarea");
-        ta.value = code;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-        showToast("📋 คัดลอกโค้ด Apps Script ลงคลิปบอร์ดแล้ว");
+        fallbackCopyText(code);
       }
     }
 
@@ -3002,10 +3011,12 @@ function doPost(e) {
             return;
           }
           const preservedGasUrl = appState.gasUrl;
+          const preservedIsCloned = appState.isClonedInstance || Boolean(getClonedBootstrapState());
           Object.assign(appState, cloudData);
           if (!appState.gasUrl) appState.gasUrl = preservedGasUrl;
+          if (preservedIsCloned) appState.isClonedInstance = true;
           if (appState.telegram) appState.telegram.chatId = cleanTelegramChatId(appState.telegram.chatId);
-          localStorage.setItem("juristic_parcel_app_v2", JSON.stringify(appState));
+          localStorage.setItem(getStorageKey(), JSON.stringify(appState));
           renderAll();
           addConnectionLog("Google Sheets Cloud", "ดึงข้อมูลล่าสุดจาก Google Sheets สำเร็จ", true);
           if (manual) showNoticeModal("ซิงค์สำเร็จ", "ดึงข้อมูลล่าสุดจาก Google Sheets เรียบร้อยแล้ว");
@@ -3180,7 +3191,6 @@ function doPost(e) {
       const mode = document.getElementById("cloneDataModeSelect").value;
       const cloneUrl = sanitizeInput(document.getElementById("cloneGasUrlInput").value);
 
-      // สร้างอ็อบเจกต์สถานะแยกเฉพาะสำหรับไฟล์สำเนา โดยไม่แก้ไข appState ของแอพต้นฉบับ
       const clonedState = JSON.parse(JSON.stringify(appState));
       clonedState.isClonedInstance = true;
       clonedState.gasUrl = cloneUrl;
@@ -3201,36 +3211,49 @@ function doPost(e) {
         clonedState.reportHistory = [];
       }
 
-      let sourceHtml = "";
-      try {
-        if (window.location.protocol.startsWith("http")) {
-          const resp = await fetch(window.location.href, { cache: "no-store" });
-          if (resp.ok) sourceHtml = await resp.text();
+      // ประกอบซอร์สโค้ดฉบับเต็มจากหน้าปัจจุบันให้ครบทุกบรรทัดและแท็กปิดท้ายเสมอ
+      const scripts = document.getElementsByTagName("script");
+      let mainScriptCode = "";
+      for (let i = 0; i < scripts.length; i++) {
+        const s = scripts[i];
+        if (!s.src && s.id !== "clonedStateBootstrap" && s.textContent && s.textContent.includes("renderAll")) {
+          mainScriptCode = s.textContent;
+          break;
         }
-      } catch (err) {
-        console.warn("Fallback to DOM clone:", err);
       }
 
-      if (!sourceHtml || !sourceHtml.includes("</html>")) {
-        const cloneDoc = document.documentElement.cloneNode(true);
-        const selResetIds = ["reqLocationSelect", "admReqLocationSelect", "houseDatalist", "slideDotsContainer", "toastContainer", "a4ReportContainer"];
-        selResetIds.forEach(id => {
-          const el = cloneDoc.querySelector("#" + id);
-          if (el) el.innerHTML = "";
-        });
-        sourceHtml = "<!doctype html>\n" + cloneDoc.outerHTML;
-      }
-
-      sourceHtml = sourceHtml.replace(/const DEFAULT_EMBEDDED_GAS_URL = "[^"]*";/, `const DEFAULT_EMBEDDED_GAS_URL = ${JSON.stringify(cloneUrl)};`);
-      sourceHtml = sourceHtml.replace(/<script id="clonedStateBootstrap">[\s\S]*?<\/script>\s*/gi, "");
+      const cloneDoc = document.documentElement.cloneNode(true);
+      const selResetIds = ["reqLocationSelect", "admReqLocationSelect", "houseDatalist", "slideDotsContainer", "toastContainer", "a4ReportContainer"];
+      selResetIds.forEach(id => {
+        const el = cloneDoc.querySelector("#" + id);
+        if (el) el.innerHTML = "";
+      });
 
       const safeJson = JSON.stringify(clonedState).replace(/</g, "\\u003c");
-      const openTag = "<" + "script id=\"clonedStateBootstrap\">";
-      const closeTag = "</" + "script>";
-      const injectScript = openTag + "window.__CLONED_INITIAL_STATE__ = " + safeJson + ";" + closeTag;
-      const htmlDoc = sourceHtml.replace(/<\/head>/i, injectScript + "\n</head>");
+      const bootstrapEl = cloneDoc.querySelector("#clonedStateBootstrap");
+      if (bootstrapEl) {
+        bootstrapEl.textContent = safeJson;
+      }
 
-      const blob = new Blob([htmlDoc], { type: "text/html;charset=utf-8" });
+      const bodyClone = cloneDoc.querySelector("body");
+      if (bodyClone && mainScriptCode) {
+        const bodyScripts = bodyClone.querySelectorAll("script");
+        bodyScripts.forEach(bs => {
+          if (!bs.src && bs.id !== "clonedStateBootstrap") {
+            bs.remove();
+          }
+        });
+        const freshScriptEl = cloneDoc.ownerDocument.createElement("script");
+        freshScriptEl.textContent = mainScriptCode.replace(/const DEFAULT_EMBEDDED_GAS_URL = "[^"]*";/, () => `const DEFAULT_EMBEDDED_GAS_URL = ${JSON.stringify(cloneUrl)};`);
+        bodyClone.appendChild(freshScriptEl);
+      }
+
+      let sourceHtml = "<!doctype html>\n" + cloneDoc.outerHTML;
+      if (!sourceHtml.trim().toLowerCase().endsWith("</html>")) {
+        sourceHtml += "\n</html>";
+      }
+
+      const blob = new Blob([sourceHtml], { type: "text/html;charset=utf-8" });
       const u = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = u;
@@ -3239,7 +3262,7 @@ function doPost(e) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(u);
-      showNoticeModal("ดาวน์โหลดไฟล์สำเร็จ", `สร้างไฟล์สำเนาสำหรับ "${title}" เรียบร้อยแล้ว สามารถนำไปเปิดใช้งานหรืออัปโหลดให้โครงการอื่นได้ทันที`);
+      showNoticeModal("ดาวน์โหลดไฟล์สำเร็จ", `สร้างไฟล์สำเนาสำหรับ "${title}" เรียบร้อยแล้ว ไฟล์ครบถ้วนทุกฟังก์ชันและเปิดใช้งานได้ทันที`);
     }
 
     function handleManualSyncCheck() {
@@ -3416,7 +3439,7 @@ function doPost(e) {
       updateSyncStatusUI();
 
       // ซ่อนเมนู "การทำสำเนาแอพ (Clone App)" หากเป็นแอพที่ถูกทำสำเนาไปแล้ว
-      const isCloned = appState.isClonedInstance === true || Boolean(window.__CLONED_INITIAL_STATE__);
+      const isCloned = appState.isClonedInstance === true || Boolean(getClonedBootstrapState());
       const cloneSubTabBtn = document.getElementById("btnSubTabCloneApp");
       const cloneSubTabPane = document.getElementById("subTabCloneApp");
       if (cloneSubTabBtn) cloneSubTabBtn.classList.toggle("hidden", isCloned);
@@ -3730,16 +3753,19 @@ function doPost(e) {
       try {
         const serialized = JSON.stringify(appState);
         localStorage.setItem(getStorageKey(), serialized);
-        localStorage.setItem("juristic_parcel_app_v2", serialized);
+        if (!appState.isClonedInstance && !getClonedBootstrapState()) {
+          localStorage.setItem("juristic_parcel_app_v2", serialized);
+        }
       } catch (e) {}
     });
 
     window.addEventListener("DOMContentLoaded", () => {
-      if (window.__CLONED_INITIAL_STATE__) {
-        Object.assign(appState, window.__CLONED_INITIAL_STATE__);
+      const clonedBootstrap = getClonedBootstrapState();
+      if (clonedBootstrap) {
+        Object.assign(appState, clonedBootstrap);
       }
       const hasLocal = loadStateFromStorage();
-      if (!hasLocal && window.__CLONED_INITIAL_STATE__) {
+      if (!hasLocal && clonedBootstrap) {
         saveStateToStorage(false);
       }
       try {
@@ -3779,6 +3805,3 @@ function doPost(e) {
   </script>
 </body>
 </html>
-```
-
-เรียบร้อยครับ ตอนนี้ `index.html` สะอาดสมบูรณ์ 100% ทั้งการลบกล่องซ้ำซ้อนในแท็บ Clone App และเพิ่มฟังก์ชัน `fallbackCopyText` สำหรับรองรับการคัดลอกลิงก์บนทุกเบราว์เซอร์แล้วครับ
