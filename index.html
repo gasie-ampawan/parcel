@@ -900,6 +900,20 @@
               </div>
             </div>
 
+            <!-- กล่องลิงก์สำหรับแชร์ให้ลูกบ้าน / เปิดใช้งานข้ามเครื่อง -->
+            <div style="background: var(--surface-alt); padding: 16px; border-radius: 10px; border: 1px solid var(--brand); margin-bottom: 16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                <label class="form-label" for="shareableResidentLinkInput" style="margin:0; color:var(--brand);">🔗 ลิงก์สำหรับแชร์ให้ลูกบ้าน (หน้าบ้าน) หรือเปิดใช้งานผ่านเครื่องอื่น (Auto-Sync)</label>
+                <span class="badge badge-matched">พร้อมแชร์ลง LINE / QR Code</span>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <input type="text" id="shareableResidentLinkInput" class="input" style="flex:1 1 280px; font-family:monospace; font-size:13px;" readonly placeholder="กำลังสร้างลิงก์แชร์...">
+                <button type="button" class="btn btn-primary btn-sm" onclick="copyShareableResidentLink()">📋 คัดลอกลิงก์ให้ลูกบ้าน</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openShareableResidentLink()">↗️ เปิดทดสอบลิงก์</button>
+              </div>
+              <span class="form-hint" style="display:block; margin-top:6px;">💡 นำลิงก์นี้ส่งเข้ากลุ่ม LINE ลูกบ้าน หรือทำ QR Code เมื่อลูกบ้านกดเปิดจะซิงค์ข้อมูลจุดรับและส่งคำขอเข้าหลังบ้านอัตโนมัติทันที</span>
+            </div>
+
             <!-- Google Apps Script Code Guide -->
             <div class="guide-step-box" style="margin-top: 16px;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
@@ -1130,6 +1144,21 @@ function doPost(e) {
                     <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveAndVerifyCloneGasUrl()">💾 บันทึก & ยืนยันลิงก์ Apps Script</button>
                   </div>
                 </div>
+
+                <!-- ช่องลิงก์สำหรับแชร์ให้ลูกบ้าน / เปิดใช้งานข้ามเครื่อง ในหน้าตั้งค่า -->
+                <div style="margin-top: 16px; padding: 16px; background: var(--surface); border: 1px solid var(--brand); border-radius: 10px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom: 8px;">
+                    <label class="form-label" for="settingsShareLinkInput" style="margin:0; color:var(--brand);">🔗 ลิงก์สำหรับแชร์ให้ลูกบ้าน / เปิดใช้งานข้ามเครื่อง (Public Resident Link)</label>
+                    <span class="badge badge-matched">Auto-Sync Link</span>
+                  </div>
+                  <div style="display:flex; flex-wrap:wrap; gap: 8px; align-items:center;">
+                    <input type="text" id="settingsShareLinkInput" class="input" style="flex: 1 1 300px; font-family:monospace; font-size:13px;" readonly>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="copyShareableResidentLink()">📋 คัดลอกลิงก์ให้ลูกบ้าน</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="openShareableResidentLink()">↗️ เปิดหน้าต่างใหม่</button>
+                  </div>
+                  <span class="form-hint" style="display:block; margin-top:6px;">ส่งลิงก์นี้ให้ลูกบ้านกดบันทึก (Bookmark / Add to Home Screen) หรือเปิดบนมือถือ/คอมพิวเตอร์เครื่องอื่นได้ทันที</span>
+                </div>
+
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap: 12px; margin-top: 16px;">
                   <span class="form-hint">ดาวน์โหลดไฟล์สำเนาพร้อมนำไปเปิดใช้งานข้ามเครื่องได้ทันที</span>
                   <div style="display:flex; gap: 8px; flex-wrap:wrap;">
@@ -2807,9 +2836,53 @@ function doPost(e) {
       appState.gasUrl = sanitizeInput(document.getElementById("gasUrlInput").value);
       saveStateToStorage(false);
       updateSyncStatusUI();
+      updateShareableLinksUI();
       if (pullAfter) {
         fetchFromGoogleSheetsCloud(true);
       }
+    }
+
+    function buildShareableResidentUrl() {
+      const baseUrl = window.location.origin + window.location.pathname;
+      const gas = (appState.gasUrl || "").trim();
+      if (gas && gas.startsWith("https://")) {
+        return `${baseUrl}?gas=${encodeURIComponent(gas)}`;
+      }
+      return baseUrl;
+    }
+
+    function updateShareableLinksUI() {
+      const link = buildShareableResidentUrl();
+      const inp1 = document.getElementById("shareableResidentLinkInput");
+      const inp2 = document.getElementById("settingsShareLinkInput");
+      if (inp1) inp1.value = link;
+      if (inp2) inp2.value = link;
+    }
+
+    function copyShareableResidentLink() {
+      const link = buildShareableResidentUrl();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(() => {
+          showToast("📋 คัดลอกลิงก์สำหรับลูกบ้าน/เปิดข้ามเครื่องแล้ว");
+        }).catch(() => fallbackCopyText(link));
+      } else {
+        fallbackCopyText(link);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showToast("📋 คัดลอกลิงก์เรียบร้อยแล้ว");
+    }
+
+    function openShareableResidentLink() {
+      const link = buildShareableResidentUrl();
+      window.open(link, "_blank");
     }
 
     function copyGasScriptCode() {
@@ -3036,6 +3109,7 @@ function doPost(e) {
       isCloneGasUrlVerified = true;
       saveStateToStorage(false);
       updateSyncStatusUI();
+      updateShareableLinksUI();
       showNoticeModal("ยืนยันสำเร็จ", url ? "บันทึกลิงก์ Apps Script สำหรับแอพสำเนาเรียบร้อยแล้ว" : "ตั้งค่าแอพสำเนาแบบใช้งานในเครื่องเรียบร้อยแล้ว");
     }
 
@@ -3289,7 +3363,7 @@ function doPost(e) {
       if (g1 && document.activeElement !== g1) g1.value = appState.gasUrl || "";
       const g2 = document.getElementById("cloneGasUrlInput");
       if (g2 && document.activeElement !== g2) g2.value = appState.gasUrl || "";
-
+      updateShareableLinksUI();
       const tgTok = document.getElementById("tgBotTokenInput");
       const tgChat = document.getElementById("tgChatIdInput");
       const tgChk = document.getElementById("tgEnableCheck");
