@@ -1402,12 +1402,21 @@ function doPost(e) {
     }
 
     // ==================== LOCAL STORAGE ====================
+    function getStorageKey() {
+      const proj = (appState.projectName || "default").trim();
+      return "juristic_parcel_app_v2_" + encodeURIComponent(proj);
+    }
+
     function loadStateFromStorage() {
       try {
-        const saved = localStorage.getItem("juristic_parcel_app_v2");
+        const key = getStorageKey();
+        const saved = localStorage.getItem(key) || localStorage.getItem("juristic_parcel_app_v2");
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && typeof parsed === "object") {
+            if (window.__CLONED_INITIAL_STATE__ && !localStorage.getItem(key)) {
+              return false;
+            }
             Object.assign(appState, parsed);
             if (!appState.telegram) appState.telegram = { botToken: "", chatId: "", enabled: true, connected: false };
             appState.telegram.chatId = cleanTelegramChatId(appState.telegram.chatId);
@@ -1428,7 +1437,9 @@ function doPost(e) {
       appState.lastUpdated = now;
       lastLocalMutationTs = now;
       try {
-        localStorage.setItem("juristic_parcel_app_v2", JSON.stringify(appState));
+        const serialized = JSON.stringify(appState);
+        localStorage.setItem(getStorageKey(), serialized);
+        localStorage.setItem("juristic_parcel_app_v2", serialized);
       } catch (e) {
         showToast("⚠️ พื้นที่จัดเก็บเบราว์เซอร์ใกล้เต็ม กรุณาลบรูปประกาศเก่าออกบางส่วน");
       }
@@ -3123,11 +3134,10 @@ function doPost(e) {
       }
     }
 
-    function handleGenerateClonedAppFile() {
+    async function handleGenerateClonedAppFile() {
       const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value) || appState.projectName;
       const mode = document.getElementById("cloneDataModeSelect").value;
       const cloneUrl = sanitizeInput(document.getElementById("cloneGasUrlInput").value) || appState.gasUrl;
-      const resetAdmins = Boolean(document.getElementById("cloneResetAdminsCheck")?.checked);
 
       appState.gasUrl = cloneUrl;
       appState.projectName = title;
@@ -3141,25 +3151,38 @@ function doPost(e) {
       clonedState.connectionLogs = [];
       clonedState.lastUpdated = 0;
 
-      if (resetAdmins) {
-        clonedState.admins = [
-          { id: "adm-1", username: "admin", password: "1234", displayName: "ธุรการนิติบุคคล", role: "Super Admin", active: true }
-        ];
-      }
-
       if (mode === "config_only") {
         clonedState.requests = [];
         clonedState.parcels = [];
         clonedState.reportHistory = [];
       }
 
-      let rawHtml = document.documentElement.outerHTML;
-      rawHtml = rawHtml.replace(/const DEFAULT_EMBEDDED_GAS_URL = "[^"]*";/, `const DEFAULT_EMBEDDED_GAS_URL = ${JSON.stringify(cloneUrl)};`);
-      rawHtml = rawHtml.replace(/<script id="clonedStateBootstrap">[\s\S]*?<\/script>\s*/g, "");
+      let sourceHtml = "";
+      try {
+        if (window.location.protocol.startsWith("http")) {
+          const resp = await fetch(window.location.href, { cache: "no-store" });
+          if (resp.ok) sourceHtml = await resp.text();
+        }
+      } catch (err) {
+        console.warn("Fallback to DOM clone:", err);
+      }
+
+      if (!sourceHtml || !sourceHtml.includes("</html>")) {
+        const cloneDoc = document.documentElement.cloneNode(true);
+        const selResetIds = ["reqLocationSelect", "admReqLocationSelect", "houseDatalist", "slideDotsContainer", "toastContainer", "a4ReportContainer"];
+        selResetIds.forEach(id => {
+          const el = cloneDoc.querySelector("#" + id);
+          if (el) el.innerHTML = "";
+        });
+        sourceHtml = "<!doctype html>\n" + cloneDoc.outerHTML;
+      }
+
+      sourceHtml = sourceHtml.replace(/const DEFAULT_EMBEDDED_GAS_URL = "[^"]*";/, `const DEFAULT_EMBEDDED_GAS_URL = ${JSON.stringify(cloneUrl)};`);
+      sourceHtml = sourceHtml.replace(/<script id="clonedStateBootstrap">[\s\S]*?<\/script>\s*/gi, "");
 
       const safeJson = JSON.stringify(clonedState).replace(/<\/script>/gi, "<\\/script>");
       const injectScript = "<scr" + "ipt id=\"clonedStateBootstrap\">window.__CLONED_INITIAL_STATE__ = " + safeJson + ";</scr" + "ipt>";
-      const htmlDoc = ("<!doctype html>\n" + rawHtml).replace("</head>", injectScript + "\n</head>");
+      const htmlDoc = sourceHtml.replace(/<\/head>/i, injectScript + "\n</head>");
 
       const blob = new Blob([htmlDoc], { type: "text/html;charset=utf-8" });
       const u = URL.createObjectURL(blob);
@@ -3654,14 +3677,18 @@ function doPost(e) {
     // ==================== INITIALIZATION ====================
     window.addEventListener("beforeunload", () => {
       try {
-        localStorage.setItem("juristic_parcel_app_v2", JSON.stringify(appState));
+        const serialized = JSON.stringify(appState);
+        localStorage.setItem(getStorageKey(), serialized);
+        localStorage.setItem("juristic_parcel_app_v2", serialized);
       } catch (e) {}
     });
 
     window.addEventListener("DOMContentLoaded", () => {
+      if (window.__CLONED_INITIAL_STATE__) {
+        Object.assign(appState, window.__CLONED_INITIAL_STATE__);
+      }
       const hasLocal = loadStateFromStorage();
       if (!hasLocal && window.__CLONED_INITIAL_STATE__) {
-        Object.assign(appState, window.__CLONED_INITIAL_STATE__);
         saveStateToStorage(false);
       }
       try {
@@ -3669,7 +3696,7 @@ function doPost(e) {
         const gasParam = sanitizeInput(urlParams.get("gas"));
         if (gasParam && gasParam.startsWith("https://")) {
           appState.gasUrl = gasParam;
-          localStorage.setItem("juristic_parcel_app_v2", JSON.stringify(appState));
+          saveStateToStorage(false);
         }
       } catch (e) {}
       // ล้างกล่องสรุปคำขอล่าสุดที่ค้างจากเซสชันก่อนหน้าเมื่อเปิดหน้าใหม่
