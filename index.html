@@ -332,9 +332,10 @@
         <div id="latestRequestBlueBox" class="latest-submission-box hidden">
           <div class="latest-submission-title" style="display:flex; justify-content:space-between; align-items:center;">
             <span>✅ ส่งคำขอรับพัสดุล่าสุดสำเร็จ</span>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
               <span class="badge" style="background:var(--brand); color:#12242A;" id="latestSyncStatusBadge">💾 บันทึกลงระบบแล้ว</span>
               <span class="badge badge-opt hidden" id="latestTgStatusBadge">🤖 Telegram</span>
+              <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:12px;" onclick="dismissLatestSubmissionBox()" title="ปิดข้อความนี้">✕</button>
             </div>
           </div>
           <div class="latest-grid" id="latestRequestSummaryContent"></div>
@@ -1242,9 +1243,15 @@ function doPost(e) {
     let slideTimer = null;
     let tickerTimer = null;
     let cloudSyncTimer = null;
+    let latestBoxHideTimer = null;
     let isSlideshowHovered = false;
+    let isCloneGasUrlVerified = false;
+    let lastAutoClear19Date = "";
+    let lastAutoCutoff21Date = "";
 
     const appState = {
+      lastUpdated: 0,
+      isClonedInstance: false,
       requests: [],
       parcels: [],
       houses: [
@@ -1257,71 +1264,37 @@ function doPost(e) {
         { id: "loc-3", name: "ฝากใส่ตู้ HIVE BOX", requirePhone: true }
       ],
       announcements: [
-        { id: "ann-default-1", title: "ยินดีต้อนรับสู่บริการแจ้งรับพัสดุออนไลน์", imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80" }
+        { id: "ann-default-1", title: "ยินดีต้อนรับสู่ระบบแจ้งรับพัสดุนิติบุคคล", imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80" }
       ],
       textAnnouncements: [
-        { id: "txt-1", message: "📢 ประกาศจากนิติบุคคล: กรุณารับพัสดุภายใน 3 วันทำการ เพื่อความสะดวกในการจัดเก็บ" }
+        { id: "txt-1", message: "📢 ประกาศจากนิติบุคคล: กรุณารับพัสดุภายใน 3 วันทำการ เพื่อความสะดวกรวดเร็วในการจัดเก็บ" }
       ],
       admins: [
-        { id: "adm-1", username: "admin", password: "1234", displayName: "ผู้ดูแลระบบหลัก", role: "Super Admin", active: true }
+        { id: "adm-1", username: "admin", password: "1234", displayName: "ธุรการนิติบุคคล", role: "Super Admin", active: true }
       ],
       gasUrl: "",
       projectName: "โครงการอาคารชุดนิติบุคคล",
       slideshowSpeedMs: 5000,
-      isClonedInstance: false,
-      latestSubmittedRequest: null,
-      automation: {
-        autoClear1900: true,
-        autoCutoff2100: true,
-        lastClear1900Date: "",
-        lastCutoff2100Date: ""
-      },
+      autoClear1900: true,
+      autoCutoff2100: true,
       telegram: {
-        botToken: "7691556293:AAE3lr_WwH5PE4h9S3UWUOP2HkUdmqX8qi4",
-        chatId: "-1003472008445",
+        botToken: "",
+        chatId: "",
         enabled: true,
-        connected: true
+        connected: false
       },
       connectionLogs: [],
-      reportHistory: []
+      reportHistory: [],
+      latestSubmittedRequest: null
     };
 
-    // ==================== UTILITY FUNCTIONS ====================
-    function showToast(message, icon = "ℹ️") {
-      const container = document.getElementById("toastContainer");
-      if (!container) return;
-      const item = document.createElement("div");
-      item.className = "toast-item";
-      item.innerHTML = `<span style="font-size:18px;">${icon}</span><span>${message}</span>`;
-      container.appendChild(item);
-      setTimeout(() => {
-        item.style.opacity = "0";
-        item.style.transform = "translateX(100%)";
-        item.style.transition = "all 0.25s ease";
-        setTimeout(() => item.remove(), 260);
-      }, 3200);
-    }
-
-    function addConnectionLog(channel, detail, success = true) {
-      if (!Array.isArray(appState.connectionLogs)) appState.connectionLogs = [];
-      appState.connectionLogs.unshift({
-        id: "log-" + Date.now() + Math.random(),
-        timestamp: `${getTodayDateString()} ${getCurrentTimeString()}`,
-        channel,
-        detail,
-        success
-      });
-      if (appState.connectionLogs.length > 50) {
-        appState.connectionLogs = appState.connectionLogs.slice(0, 50);
-      }
-      saveStateToStorage();
-      renderConnectionLogs();
-    }
-
-    function getLatestRequestsOnly(requestsList) {
-      const latestMap = {};
-      (requestsList || []).forEach(r => { if (!latestMap[r.house]) latestMap[r.house] = r; });
-      return Object.values(latestMap);
+    // ==================== UTILITY & SANITIZATION ====================
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
 
     function sanitizeInput(rawVal) {
@@ -1333,110 +1306,77 @@ function doPost(e) {
 
     function getTodayDateString() {
       const now = new Date();
-      return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     }
 
     function getCurrentTimeString() {
       const now = new Date();
-      return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+      return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
     }
 
-    // ==================== STORAGE & SYNC ====================
+    function getLatestRequestsOnly(requestsList) {
+      const latestMap = {};
+      (requestsList || []).forEach(r => {
+        if (!latestMap[r.house]) latestMap[r.house] = r;
+      });
+      return Object.values(latestMap);
+    }
+
+    function showToast(message) {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+      const item = document.createElement("div");
+      item.className = "toast-item";
+      item.textContent = message;
+      container.appendChild(item);
+      setTimeout(() => {
+        item.style.opacity = "0";
+        item.style.transition = "opacity 0.25s ease";
+        setTimeout(() => item.remove(), 260);
+      }, 3200);
+    }
+
+    function addConnectionLog(channel, detail, success = true) {
+      if (!Array.isArray(appState.connectionLogs)) appState.connectionLogs = [];
+      appState.connectionLogs.unshift({
+        id: "log-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+        timestamp: `${getTodayDateString()} ${getCurrentTimeString()}`,
+        channel,
+        detail,
+        success
+      });
+      if (appState.connectionLogs.length > 60) appState.connectionLogs.length = 60;
+      renderConnectionLogs();
+    }
+
+    // ==================== LOCAL STORAGE ====================
     function loadStateFromStorage() {
       try {
-        const saved = localStorage.getItem("juristic_parcel_app_v1");
+        const saved = localStorage.getItem("juristic_parcel_app_v2");
         if (saved) {
           const parsed = JSON.parse(saved);
-          Object.assign(appState, parsed);
-          if (!appState.automation) {
-            appState.automation = { autoClear1900: true, autoCutoff2100: true, lastClear1900Date: "", lastCutoff2100Date: "" };
+          if (parsed && typeof parsed === "object") {
+            Object.assign(appState, parsed);
+            if (!appState.telegram) appState.telegram = { botToken: "", chatId: "", enabled: true, connected: false };
+            return true;
           }
-          if (!appState.telegram) {
-            appState.telegram = { botToken: "", chatId: "", enabled: false, connected: false };
-          }
-          return true;
         }
       } catch (e) {
-        console.error("Failed to load state:", e);
+        console.warn("Load storage warning:", e);
       }
       return false;
     }
 
-    function saveStateToStorage() {
+    function saveStateToStorage(pushCloud = true) {
+      appState.lastUpdated = Date.now();
       try {
-        localStorage.setItem("juristic_parcel_app_v1", JSON.stringify(appState));
+        localStorage.setItem("juristic_parcel_app_v2", JSON.stringify(appState));
       } catch (e) {
-        showToast("หน่วยความจำเต็ม กรุณาลบภาพประกาศขนาดใหญ่บางส่วน", "⚠️");
+        showToast("⚠️ พื้นที่จัดเก็บเบราว์เซอร์ใกล้เต็ม กรุณาลบรูปประกาศเก่าออกบางส่วน");
       }
-    }
-
-    // ==================== REAL-TIME CLOCK & AUTOMATION ====================
-    function startRealTimeClockAndAutomation() {
-      const updateClock = () => {
-        const now = new Date();
-        const timeStr = getCurrentTimeString();
-        const clockEl = document.getElementById("clockDisplay");
-        if (clockEl) clockEl.textContent = timeStr;
-
-        const today = getTodayDateString();
-        const hours = now.getHours();
-        const minutes = now.getMinutes();
-
-        // 19:00 น. Auto-Clear Daily Parcels
-        if (appState.automation?.autoClear1900 && hours === 19 && minutes === 0 && appState.automation.lastClear1900Date !== today) {
-          appState.automation.lastClear1900Date = today;
-          runAutoClearParcels1900(false);
-        }
-
-        // 21:00 น. Auto-Cutoff Matched Requests
-        if (appState.automation?.autoCutoff2100 && hours === 21 && minutes === 0 && appState.automation.lastCutoff2100Date !== today) {
-          appState.automation.lastCutoff2100Date = today;
-          runAutoCutoff2100(false);
-        }
-      };
-      updateClock();
-      setInterval(updateClock, 1000);
-    }
-
-    function runAutoClearParcels1900(isManualTest = false) {
-      const count = appState.parcels.length;
-      if (count === 0 && isManualTest) {
-        showNoticeModal("ทดสอบระบบ 19:00 น.", "ไม่มีรายการพัสดุคงค้างให้เคลียร์ในขณะนี้");
-        return;
+      if (pushCloud && appState.gasUrl) {
+        pushStateToGoogleSheetsCloud(false);
       }
-      if (count > 0) {
-        appState.parcels = [];
-        reconcileRequestsAndParcels();
-        saveStateToStorage();
-        addConnectionLog("Automation (19:00)", `เคลียร์รายการพัสดุประจำวันอัตโนมัติจำนวน ${count} รายการ`, true);
-        renderAll();
-        if (isManualTest) showNoticeModal("ทดสอบสำเร็จ", `เคลียร์รายการพัสดุประจำวันจำนวน ${count} รายการเรียบร้อยแล้ว`);
-        else showToast(`ตัดรอบ 19:00 น.: เคลียร์พัสดุประจำวัน ${count} รายการแล้ว`, "⏰");
-      }
-    }
-
-    function runAutoCutoff2100(isManualTest = false) {
-      reconcileRequestsAndParcels();
-      const matchedCount = appState.requests.filter(r => r.matched).length;
-      if (matchedCount === 0 && isManualTest) {
-        showNoticeModal("ทดสอบระบบ 21:00 น.", "ไม่มีคำขอที่จับคู่สำเร็จให้ตัดรอบในขณะนี้");
-        return;
-      }
-      if (matchedCount > 0) {
-        appState.requests = appState.requests.filter(r => !r.matched);
-        saveStateToStorage();
-        addConnectionLog("Automation (21:00)", `ตัดรอบคำขอที่จับคู่แล้วอัตโนมัติจำนวน ${matchedCount} รายการ`, true);
-        renderAll();
-        if (isManualTest) showNoticeModal("ทดสอบสำเร็จ", `ตัดรอบคำขอที่จับคู่แล้วจำนวน ${matchedCount} รายการเรียบร้อยแล้ว`);
-        else showToast(`ตัดรอบ 21:00 น.: ตัดรอบคำขอที่จับคู่แล้ว ${matchedCount} รายการ`, "⏰");
-      }
-    }
-
-    function handleToggleAutomationSettings() {
-      appState.automation.autoClear1900 = document.getElementById("autoClear1900Check").checked;
-      appState.automation.autoCutoff2100 = document.getElementById("autoCutoff2100Check").checked;
-      saveStateToStorage();
-      showToast("บันทึกการตั้งค่าตัดรอบอัตโนมัติแล้ว", "✅");
     }
 
     // ==================== CUSTOM MODAL ====================
@@ -1449,7 +1389,10 @@ function doPost(e) {
       confirmBtn.textContent = confirmText;
       confirmBtn.className = danger ? "btn btn-danger" : "btn btn-primary";
       cancelBtn.style.display = hideCancel ? "none" : "inline-flex";
-      confirmBtn.onclick = () => { closeConfirmModal(); if (onConfirm) onConfirm(); };
+      confirmBtn.onclick = () => {
+        closeConfirmModal();
+        if (onConfirm) onConfirm();
+      };
       backdrop.classList.add("open");
     }
 
@@ -1461,52 +1404,59 @@ function doPost(e) {
       document.getElementById("customConfirmModal").classList.remove("open");
     }
 
-    // ==================== HOUSE FORMATTING & PICKUP LOCATION ====================
+    // ==================== HOUSE FORMATTER & PICKUP LOCATION ====================
+    function getDefaultHousePattern() {
+      let prefix = "62/";
+      let pad = 4;
+      const genPrefixEl = document.getElementById("genPrefix");
+      const genPadEl = document.getElementById("genPad");
+      if (genPrefixEl && genPrefixEl.value.trim()) {
+        prefix = genPrefixEl.value.trim();
+      } else if (appState.houses.length > 0) {
+        const m = appState.houses[0].match(/^([^\/]+\/)(\d+)$/);
+        if (m) {
+          prefix = m[1];
+          pad = m[2].length;
+        }
+      }
+      if (genPadEl && !isNaN(parseInt(genPadEl.value, 10))) {
+        pad = parseInt(genPadEl.value, 10);
+      } else if (appState.houses.length > 0) {
+        const m = appState.houses[0].match(/^([^\/]+\/)(\d+)$/);
+        if (m) pad = m[2].length;
+      }
+      return { prefix, pad };
+    }
+
     function formatHouseNumber(rawInput) {
       const cleaned = sanitizeInput(rawInput).replace(/\s+/g, "");
       if (!cleaned) return "";
       if (appState.houses.includes(cleaned)) return cleaned;
 
-      // ดึง Prefix และ Padding จากช่องตั้งค่า House Generator (หรือค่าเริ่มต้น 62/ และ 4 หลัก)
-      const genPrefixEl = document.getElementById("genPrefix");
-      const genPadEl = document.getElementById("genPad");
-      let defaultPrefix = (genPrefixEl && genPrefixEl.value.trim()) ? sanitizeInput(genPrefixEl.value.trim()) : "62/";
-      let padLength = genPadEl ? parseInt(genPadEl.value, 10) : 4;
-      if (isNaN(padLength) || padLength <= 0) padLength = 4;
-
-      // หากมีรายการบ้านเลขที่ในระบบ ให้ใช้รูปแบบ Prefix และจำนวนหลักตามข้อมูลจริง
-      if (appState.houses.length > 0) {
-        const match = appState.houses[0].match(/^([^\/]+\/)(\d+)$/);
-        if (match) {
-          defaultPrefix = match[1];
-          padLength = match[2].length;
-        }
-      }
-
-      // กรณีพิมพ์แบบมีเครื่องหมาย / เช่น 62/1 หรือ 62/164 -> แปลงเป็น 62/0001 หรือ 62/0164
+      const { prefix: defaultPrefix, pad: defaultPad } = getDefaultHousePattern();
       const slashMatch = cleaned.match(/^([^\/]+\/)(\d+)$/);
       if (slashMatch) {
-        const formatted = slashMatch[1] + String(parseInt(slashMatch[2], 10)).padStart(padLength, "0");
-        return appState.houses.includes(formatted) ? formatted : formatted;
+        const pfx = slashMatch[1];
+        const num = parseInt(slashMatch[2], 10);
+        const pad4 = pfx + String(num).padStart(4, "0");
+        if (appState.houses.includes(pad4)) return pad4;
+        const pad3 = pfx + String(num).padStart(3, "0");
+        if (appState.houses.includes(pad3)) return pad3;
+        return defaultPad > 0 ? pfx + String(num).padStart(defaultPad, "0") : pfx + String(num);
       }
 
-      // กรณีพิมพ์เฉพาะตัวเลขโดยไม่ใส่คำนำหน้า เช่น 164 -> เติม Prefix เป็น 62/0164 อัตโนมัติ
       if (/^\d+$/.test(cleaned)) {
         const num = parseInt(cleaned, 10);
-        const formatted = defaultPrefix + String(num).padStart(padLength, "0");
-        // ตรวจสอบเผื่อกรณีในระบบมีเลขที่ตรงกันในรูปแบบอื่น
-        const existingMatch = appState.houses.find(h => {
-          const m = h.match(/^([^\/]+\/)(\d+)$/);
-          return m && m[1] === defaultPrefix && parseInt(m[2], 10) === num;
-        });
-        return existingMatch || formatted;
+        const formatted = defaultPad > 0 ? defaultPrefix + String(num).padStart(defaultPad, "0") : defaultPrefix + String(num);
+        return formatted;
       }
-
       return cleaned;
     }
 
     function handleHouseAutoFormat(el) {
-      if (el && el.value.trim()) el.value = formatHouseNumber(el.value);
+      if (el && el.value.trim()) {
+        el.value = formatHouseNumber(el.value);
+      }
     }
 
     function isPhoneRequiredForLocation(locObj) {
@@ -1536,172 +1486,133 @@ function doPost(e) {
       }
     }
 
-    // ==================== REAL TELEGRAM BOT API ====================
-    function escapeTelegramHtml(str) {
-      return String(str ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    }
-
-    async function handleFetchTelegramChatIds() {
-      const tokenInput = document.getElementById("tgBotTokenInput");
-      const token = sanitizeInput(tokenInput ? tokenInput.value : appState.telegram?.botToken);
-      if (!token) {
-        showNoticeModal("กรุณาระบุ Bot Token", "กรุณาวาง Telegram Bot Token จาก @BotFather ก่อนกดดึง Chat ID");
-        return;
-      }
-
-      const btn = document.getElementById("btnFetchTgChats");
-      const box = document.getElementById("tgDiscoveredChatsBox");
-      const listEl = document.getElementById("tgDiscoveredChatsList");
-
-      if (btn) { btn.disabled = true; btn.textContent = "⏳ กำลังค้นหา..."; }
-
-      try {
-        const res = await fetch(`https://api.telegram.org/bot${encodeURIComponent(token)}/getUpdates?limit=50`);
-        const data = await res.json();
-
-        if (!data.ok) {
-          addConnectionLog("Telegram Bot", `ดึง Chat ID ล้มเหลว (${res.status}): ${data.description || "Unauthorized"}`, false);
-          showNoticeModal(
-            `ไม่สามารถดึงข้อมูลได้ (Error ${res.status}) ❌`,
-            `สาเหตุจาก Telegram: ${data.description || "Bot Token ไม่ถูกต้อง"}\n\nกรุณาตรวจสอบ Bot Token ที่คัดลอกจาก @BotFather อีกครั้ง`
-          );
-          return;
-        }
-
-        const chatsMap = new Map();
-        (data.result || []).forEach(upd => {
-          const msgObj = upd.message || upd.edited_message || upd.channel_post || upd.my_chat_member;
-          const chat = msgObj?.chat;
-          if (chat && chat.id !== undefined) {
-            const chatTitle = chat.title || [chat.first_name, chat.last_name].filter(Boolean).join(" ") || chat.username || "Private Chat";
-            chatsMap.set(String(chat.id), {
-              id: String(chat.id),
-              title: chatTitle,
-              type: chat.type || "unknown"
-            });
-          }
-        });
-
-        const discovered = Array.from(chatsMap.values());
-        if (discovered.length === 0) {
-          addConnectionLog("Telegram Bot", "เรียก getUpdates สำเร็จ แต่ยังไม่พบประวัติข้อความในกลุ่ม/แชท", false);
-          showNoticeModal(
-            "ยังไม่พบข้อมูลแชทหรือกลุ่ม 🔍",
-            "บอทเชื่อมต่อได้ถูกต้อง แต่ยังไม่พบแชทล่าสุด กรุณาทำตามขั้นตอน:\n\n1. หากใช้ในกลุ่ม: ดึงบอทเข้ากลุ่ม แล้วพิมพ์ข้อความใดก็ได้ในกลุ่ม 1 ครั้ง (เช่น พิมพ์คำว่า test)\n2. หากใช้แชทส่วนตัว: เปิดแชทบอทแล้วกดปุ่ม Start\n\nจากนั้นกดปุ่ม '🔍 ดึง Chat ID อัตโนมัติ' อีกครั้ง"
-          );
-          return;
-        }
-
-        appState.telegram.botToken = token;
-        saveStateToStorage();
-
-        if (listEl && box) {
-          listEl.innerHTML = discovered.map(c => `
-            <button type="button" class="btn btn-secondary btn-sm" style="border-color: var(--brand); text-align:left;" onclick="selectDiscoveredTelegramChat('${c.id}', '${escapeTelegramHtml(c.title)}')">
-              <span>${c.type === "private" ? "👤" : "👥"} <strong>${escapeTelegramHtml(c.title)}</strong></span>
-              <code style="background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; color:var(--brand);">${c.id}</code>
-            </button>
-          `).join("");
-          box.classList.remove("hidden");
-        }
-        addConnectionLog("Telegram Bot", `ค้นพบแชท/กลุ่มที่เชื่อมต่อกับบอทจำนวน ${discovered.length} รายการ`, true);
-      } catch (err) {
-        addConnectionLog("Telegram Bot", `เกิดข้อผิดพลาดเครือข่ายขณะดึง Chat ID: ${err.message}`, false);
-        showNoticeModal("เกิดข้อผิดพลาดเครือข่าย ❌", `ไม่สามารถเชื่อมต่อ api.telegram.org ได้:\n${err.message}`);
-      } finally {
-        if (btn) { btn.disabled = false; btn.textContent = "🔍 ดึง Chat ID อัตโนมัติ (Get Updates)"; }
-      }
-    }
-
-    function selectDiscoveredTelegramChat(chatId, chatTitle) {
-      const inp = document.getElementById("tgChatIdInput");
-      if (inp) inp.value = chatId;
-      appState.telegram.chatId = chatId;
-      saveStateToStorage();
-      showToast(`เลือก "${chatTitle}" (${chatId}) แล้ว`, "✅");
-    }
-
-    async function sendTelegramNotification(textMessage) {
+    // ==================== TELEGRAM REAL API ====================
+    async function sendTelegramMessage(messageHtml) {
       const token = (appState.telegram?.botToken || "").trim();
       const chatId = (appState.telegram?.chatId || "").trim();
       if (!token || !chatId) {
-        return { ok: false, status: 0, error: "ยังไม่ได้ตั้งค่า Bot Token หรือ Chat ID" };
+        return { ok: false, error: "ยังไม่ได้ตั้งค่า Bot Token หรือ Chat ID" };
       }
-
       try {
-        const url = `https://api.telegram.org/bot${encodeURIComponent(token)}/sendMessage`;
-        const response = await fetch(url, {
+        const res = await fetch(`https://api.telegram.org/bot${encodeURIComponent(token)}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
-            text: textMessage,
+            text: messageHtml,
             parse_mode: "HTML"
           })
         });
-        const result = await response.json();
-        if (result.ok) {
+        const data = await res.json();
+        if (data.ok) {
           appState.telegram.connected = true;
-          addConnectionLog("Telegram Bot", `ส่งข้อความเข้าแชท ${chatId} สำเร็จ`, true);
-          return { ok: true, status: response.status };
+          addConnectionLog("Telegram Bot", `ส่งข้อความสำเร็จไปยัง Chat ID: ${chatId}`, true);
+          return { ok: true, data };
         } else {
           appState.telegram.connected = false;
-          const desc = result.description || "Telegram API Error";
-          addConnectionLog("Telegram Bot", `ส่งไม่สำเร็จ (${response.status}): ${desc}`, false);
-          return { ok: false, status: response.status, error: desc };
+          const desc = data.description || `HTTP ${res.status}`;
+          addConnectionLog("Telegram Bot", `ส่งไม่สำเร็จ (${res.status}): ${desc}`, false);
+          return { ok: false, status: res.status, error: desc };
         }
       } catch (err) {
         appState.telegram.connected = false;
-        addConnectionLog("Telegram Bot", `เกิดข้อผิดพลาดเครือข่าย: ${err.message}`, false);
-        return { ok: false, status: 0, error: err.message };
+        addConnectionLog("Telegram Bot", `ข้อผิดพลาดเครือข่าย: ${err.message}`, false);
+        return { ok: false, error: err.message };
       }
+    }
+
+    async function handleFetchTelegramChatIds() {
+      const token = sanitizeInput(document.getElementById("tgBotTokenInput").value);
+      if (!token) {
+        showNoticeModal("กรุณากรอก Bot Token", "โปรดวาง Telegram Bot Token จาก @BotFather ก่อนกดค้นหา Chat ID");
+        return;
+      }
+      const btn = document.getElementById("btnFetchTgChats");
+      const box = document.getElementById("tgDiscoveredChatsBox");
+      const listEl = document.getElementById("tgDiscoveredChatsList");
+      btn.disabled = true;
+      btn.textContent = "⏳ กำลังค้นหา...";
+      box.classList.remove("hidden");
+      listEl.innerHTML = `<span style="font-size:13px; color:var(--muted);">กำลังดึงรายการแชทล่าสุดจาก Telegram API...</span>`;
+
+      try {
+        const res = await fetch(`https://api.telegram.org/bot${encodeURIComponent(token)}/getUpdates`);
+        const data = await res.json();
+        if (!data.ok) {
+          listEl.innerHTML = `<span style="color:var(--danger); font-size:13px;">❌ Error (${res.status}): ${escapeHtml(data.description || "Token ไม่ถูกต้อง")}</span>`;
+          return;
+        }
+        const chatMap = {};
+        (data.result || []).forEach(upd => {
+          const msg = upd.message || upd.channel_post || upd.my_chat_member;
+          if (msg && msg.chat) {
+            chatMap[msg.chat.id] = {
+              id: msg.chat.id,
+              title: msg.chat.title || [msg.chat.first_name, msg.chat.last_name].filter(Boolean).join(" ") || "Private Chat",
+              type: msg.chat.type
+            };
+          }
+        });
+        const chats = Object.values(chatMap);
+        if (chats.length === 0) {
+          listEl.innerHTML = `<div style="font-size:13px; color:var(--warning);">⚠️ ยังไม่พบข้อความล่าสุด: กรุณาดึงบอทเข้ากลุ่มแล้วพิมพ์ข้อความ 1 ครั้ง (หรือกด Start ในแชทบอท) จากนั้นกดปุ่มค้นหาอีกครั้ง</div>`;
+          return;
+        }
+        listEl.innerHTML = chats.map(c => `
+          <button type="button" class="btn btn-secondary btn-sm" onclick="selectTelegramChatId('${c.id}')">
+            💬 ${escapeHtml(c.title)} (${c.id})
+          </button>
+        `).join("");
+      } catch (err) {
+        listEl.innerHTML = `<span style="color:var(--danger); font-size:13px;">❌ เชื่อมต่อล้มเหลว: ${escapeHtml(err.message)}</span>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🔍 ดึง Chat ID อัตโนมัติ (Get Updates)";
+      }
+    }
+
+    function selectTelegramChatId(chatId) {
+      document.getElementById("tgChatIdInput").value = chatId;
+      document.getElementById("tgDiscoveredChatsBox").classList.add("hidden");
+      showToast(`เลือก Chat ID: ${chatId} แล้ว`);
     }
 
     async function handleTestTelegramConnection() {
-      const btn = document.getElementById("btnTestTelegram");
       const token = sanitizeInput(document.getElementById("tgBotTokenInput").value);
       const chatId = sanitizeInput(document.getElementById("tgChatIdInput").value);
-
       if (!token || !chatId) {
-        showNoticeModal("ข้อมูลไม่ครบ", "กรุณาระบุ Telegram Bot Token และ Chat ID ก่อนทดสอบ");
+        showNoticeModal("ข้อมูลไม่ครบถ้วน", "กรุณาระบุทั้ง Bot Token และ Chat ID ก่อนทดสอบส่งข้อความ");
         return;
       }
-
       appState.telegram.botToken = token;
       appState.telegram.chatId = chatId;
-      saveStateToStorage();
+      saveStateToStorage(false);
 
-      if (btn) { btn.disabled = true; btn.textContent = "⏳ กำลังส่งข้อความทดสอบ..."; }
-      const msg =
-        `🔔 <b>ทดสอบการเชื่อมต่อสำเร็จ!</b>\n` +
-        `🏢 <b>โครงการ:</b> ${escapeTelegramHtml(appState.projectName)}\n` +
-        `⏰ <b>เวลา:</b> ${escapeTelegramHtml(getTodayDateString())} ${escapeTelegramHtml(getCurrentTimeString())}\n` +
-        `✅ ระบบพร้อมแจ้งเตือนคำขอรับพัสดุอัตโนมัติ`;
+      const btn = document.getElementById("btnTestTelegram");
+      btn.disabled = true;
+      btn.textContent = "⏳ กำลังส่งทดสอบ...";
 
-      const res = await sendTelegramNotification(msg);
-      if (btn) { btn.disabled = false; btn.textContent = "🔔 ทดสอบส่งข้อความจริงเข้า Telegram"; }
+      const msg = `🔔 <b>ทดสอบการเชื่อมต่อ Telegram สำเร็จ!</b>\n🏢 โครงการ: ${escapeHtml(appState.projectName)}\n⏰ เวลา: ${getTodayDateString()} ${getCurrentTimeString()}`;
+      const res = await sendTelegramMessage(msg);
 
+      btn.disabled = false;
+      btn.textContent = "🔔 ทดสอบส่งข้อความจริงเข้า Telegram";
       renderAll();
+
       if (res.ok) {
-        showNoticeModal("เชื่อมต่อ Telegram สำเร็จ ✅", "ส่งข้อความทดสอบไปยังกลุ่ม/แชท Telegram เรียบร้อยแล้ว!");
+        showNoticeModal("✅ ส่งข้อความสำเร็จ", `ส่งข้อความทดสอบไปยัง Chat ID: ${chatId} เรียบร้อยแล้ว`);
       } else {
-        let hint = "กรุณาตรวจสอบ Bot Token และ Chat ID";
+        let hint = "";
         if (res.status === 401) {
-          hint = "Bot Token ไม่ถูกต้องหรือถูกยกเลิก กรุณาขอ Token ใหม่จาก @BotFather";
+          hint = "\n\n💡 คำแนะนำ (Error 401): Bot Token ไม่ถูกต้องหรือถูกยกเลิก กรุณาตรวจสอบ Token จาก @BotFather";
         } else if (res.status === 400) {
-          hint = "Chat ID ไม่ถูกต้อง หรือยังไม่ได้เชิญบอทเข้ากลุ่ม / กด Start บอท (ลองกดปุ่ม '🔍 ดึง Chat ID อัตโนมัติ' เพื่อดึงเลขที่ถูกต้อง)";
+          hint = "\n\n💡 คำแนะนำ (Error 400): Chat ID ไม่ถูกต้อง หรือยังไม่ได้เชิญบอทเข้ากลุ่ม (หากเป็นกลุ่มต้องมีเครื่องหมาย - นำหน้า เช่น -100xxxxxxxxxx)";
         }
-        showNoticeModal(
-          `ส่งข้อความไม่สำเร็จ (HTTP ${res.status || "Error"}) ❌`,
-          `รายละเอียดจาก Telegram:\n"${res.error}"\n\nคำแนะนำแก้ไข:\n${hint}`
-        );
+        showNoticeModal("❌ ส่งข้อความไม่สำเร็จ", `สาเหตุจาก Telegram: ${res.error}${hint}`);
       }
     }
 
-    // ==================== USER REQUEST SUBMIT ====================
+    // ==================== USER PORTAL REQUEST SUBMIT ====================
     async function handleUserRequestSubmit(e) {
       e.preventDefault();
       const errBox = document.getElementById("userFormError");
@@ -1711,24 +1622,23 @@ function doPost(e) {
       const locSelect = document.getElementById("reqLocationSelect");
       const phoneInput = document.getElementById("reqPhoneInput");
       const noteInput = document.getElementById("reqNoteInput");
-      const submitBtn = document.getElementById("btnSubmitUserReq");
 
       const formattedHouse = formatHouseNumber(houseInput.value);
       houseInput.value = formattedHouse;
 
       const selectedLocationName = sanitizeInput(locSelect.value);
-      const locObj = appState.locations.find(l => String(l.name).trim() === String(selectedLocationName).trim());
+      const locObj = appState.locations.find(l => String(l.name).trim() === selectedLocationName);
       const phoneVal = sanitizeInput(phoneInput.value);
       const noteVal = sanitizeInput(noteInput ? noteInput.value : "");
 
       if (!formattedHouse || !selectedLocationName) {
-        errBox.textContent = "⚠️ กรุณากรอกบ้านเลขที่และเลือกจุดรับพัสดุ";
+        errBox.textContent = "กรุณากรอกบ้านเลขที่และเลือกจุดรับพัสดุ";
         errBox.classList.remove("hidden");
         return;
       }
 
       if (locObj && isPhoneRequiredForLocation(locObj) && !phoneVal) {
-        errBox.textContent = `⚠️ จุดรับ "${selectedLocationName}" บังคับกรอกเบอร์โทรศัพท์ติดต่อ`;
+        errBox.textContent = `จุดรับ "${selectedLocationName}" บังคับกรอกเบอร์โทรศัพท์ติดต่อ`;
         errBox.classList.remove("hidden");
         return;
       }
@@ -1747,8 +1657,13 @@ function doPost(e) {
       appState.requests.unshift(newReq);
       reconcileRequestsAndParcels();
       appState.latestSubmittedRequest = { ...newReq };
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
+
+      clearTimeout(latestBoxHideTimer);
+      latestBoxHideTimer = setTimeout(() => {
+        dismissLatestSubmissionBox();
+      }, 15000);
 
       houseInput.value = "";
       locSelect.value = "";
@@ -1756,115 +1671,78 @@ function doPost(e) {
       if (noteInput) noteInput.value = "";
       handlePickupLocationChange();
 
-      // ส่งแจ้งเตือน Telegram จริง (แปลงอักขระ HTML ปลอดภัย 100%)
       const tgBadge = document.getElementById("latestTgStatusBadge");
       if (appState.telegram?.enabled && appState.telegram?.botToken && appState.telegram?.chatId) {
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "⏳ กำลังส่งแจ้งเตือน Telegram..."; }
-        const matchedParcels = appState.parcels.filter(p => p.house === newReq.house);
-        const parcelStatusText = matchedParcels.length > 0
-          ? `✅ มีพัสดุในระบบแล้ว (${matchedParcels.length} ชิ้น: ${escapeTelegramHtml(matchedParcels.map(p => p.carrier).join(", "))})`
-          : `⏳ ยังไม่พบรายการพัสดุในระบบ`;
-        const noteLine = newReq.note && newReq.note !== "-" ? `\n📝 <b>หมายเหตุ:</b> ${escapeTelegramHtml(newReq.note)}` : "";
+        const matchedCount = appState.parcels.filter(p => p.house === newReq.house).length;
+        const statusStr = matchedCount > 0 ? `✅ พบพัสดุในระบบแล้ว (${matchedCount} ชิ้น)` : `⏳ ยังไม่พบพัสดุในระบบ`;
+        const noteLine = newReq.note && newReq.note !== "-" ? `\n📝 หมายเหตุ: ${escapeHtml(newReq.note)}` : "";
+        const tgMsg = `📦 <b>คำขอแจ้งรับพัสดุใหม่</b>\n🏢 ${escapeHtml(appState.projectName)}\n🏠 บ้านเลขที่: <b>${escapeHtml(newReq.house)}</b>\n📍 จุดรับ: ${escapeHtml(newReq.locationName)}\n📞 เบอร์โทร: ${escapeHtml(newReq.phone)}${noteLine}\n⏰ เวลา: ${newReq.date} ${newReq.time}\n📌 สถานะ: ${statusStr}`;
 
-        const tgMsg =
-          `📦 <b>มีคำขอแจ้งรับพัสดุใหม่!</b>\n` +
-          `🏢 <b>โครงการ:</b> ${escapeTelegramHtml(appState.projectName)}\n` +
-          `🏠 <b>บ้านเลขที่:</b> <code>${escapeTelegramHtml(newReq.house)}</code>\n` +
-          `📍 <b>จุดรับพัสดุ:</b> ${escapeTelegramHtml(newReq.locationName)}\n` +
-          `📞 <b>เบอร์โทร:</b> ${escapeTelegramHtml(newReq.phone)}` +
-          noteLine +
-          `\n🕒 <b>เวลาแจ้ง:</b> ${escapeTelegramHtml(newReq.date)} ${escapeTelegramHtml(newReq.time)}\n` +
-          `📋 <b>สถานะพัสดุ:</b> ${parcelStatusText}`;
-
-        const tgRes = await sendTelegramNotification(tgMsg);
         if (tgBadge) {
           tgBadge.classList.remove("hidden");
-          tgBadge.className = tgRes.ok ? "badge badge-matched" : "badge badge-unmatched";
-          tgBadge.textContent = tgRes.ok ? "🤖 แจ้งเตือน Telegram สำเร็จ" : `⚠️ Telegram (${tgRes.status || "Err"})`;
+          tgBadge.textContent = "⏳ กำลังส่ง Telegram...";
         }
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "🚀 ส่งคำขอรับพัสดุ (Auto-Sync & แจ้งเตือน)"; }
+        const tgRes = await sendTelegramMessage(tgMsg);
+        if (tgBadge) {
+          tgBadge.textContent = tgRes.ok ? "🤖 แจ้งเตือน Telegram แล้ว" : "⚠️ Telegram ไม่สำเร็จ";
+        }
       } else if (tgBadge) {
         tgBadge.classList.add("hidden");
       }
+    }
 
-      // ซิงค์ขึ้น Google Sheets Cloud อัตโนมัติ (ถ้าตั้งค่า URL ไว้)
-      const syncBadge = document.getElementById("latestSyncStatusBadge");
-      if (appState.gasUrl) {
-        const cloudOk = await pushStateToGoogleSheetsCloud(false);
-        if (syncBadge) {
-          syncBadge.textContent = cloudOk ? "☁️ ซิงค์ขึ้น Cloud แล้ว" : "💾 บันทึกในเครื่องแล้ว";
-        }
-      } else if (syncBadge) {
-        syncBadge.textContent = "💾 บันทึกในเครื่องแล้ว";
-      }
+    function dismissLatestSubmissionBox() {
+      clearTimeout(latestBoxHideTimer);
+      appState.latestSubmittedRequest = null;
+      const box = document.getElementById("latestRequestBlueBox");
+      if (box) box.classList.add("hidden");
     }
 
     function renderLatestSubmissionCard() {
       const box = document.getElementById("latestRequestBlueBox");
       const content = document.getElementById("latestRequestSummaryContent");
       const latest = appState.latestSubmittedRequest;
-      if (!latest) {
-        box.classList.add("hidden");
+      if (!latest || latest.date !== getTodayDateString()) {
+        appState.latestSubmittedRequest = null;
+        if (box) box.classList.add("hidden");
         return;
       }
       box.classList.remove("hidden");
       content.innerHTML = `
-        <div><strong>บ้านเลขที่:</strong> ${latest.house}</div>
-        <div><strong>จุดรับพัสดุ:</strong> ${latest.locationName}</div>
-        <div><strong>เบอร์โทรศัพท์:</strong> ${latest.phone}</div>
-        <div><strong>หมายเหตุเพิ่มเติม:</strong> ${latest.note || "-"}</div>
+        <div><strong>บ้านเลขที่:</strong> ${escapeHtml(latest.house)}</div>
+        <div><strong>จุดรับพัสดุ:</strong> ${escapeHtml(latest.locationName)}</div>
+        <div><strong>เบอร์โทรศัพท์:</strong> ${escapeHtml(latest.phone)}</div>
+        <div><strong>หมายเหตุเพิ่มเติม:</strong> ${escapeHtml(latest.note || "-")}</div>
         <div><strong>เวลาที่ส่งคำขอ:</strong> ${latest.date} ${latest.time}</div>
         <div><strong>สถานะ:</strong> ${latest.matched ? "✅ พบพัสดุแล้วพร้อมจ่าย" : "⏳ รอเจ้าหน้าที่ตรวจสอบ"}</div>
       `;
     }
 
-    // ==================== SLIDESHOW & TEXT TICKER ====================
+    // ==================== SLIDESHOW & TICKER ====================
     function runSlideshowInterval() {
       clearInterval(slideTimer);
       const intervalSpeed = parseInt(appState.slideshowSpeedMs, 10);
       if (isNaN(intervalSpeed) || intervalSpeed <= 0) return;
       slideTimer = setInterval(() => {
-        if (!isSlideshowHovered && appState.announcements.length > 1) changeSlide(1);
+        if (!isSlideshowHovered) changeSlide(1);
       }, intervalSpeed);
     }
 
-    function runTextTickerInterval() {
-      clearInterval(tickerTimer);
-      tickerTimer = setInterval(() => {
-        if (appState.textAnnouncements.length > 1) {
-          currentTickerIndex = (currentTickerIndex + 1) % appState.textAnnouncements.length;
-          renderTextTicker();
-        }
-      }, 4500);
+    function handleSlideshowHover(h) {
+      isSlideshowHovered = h;
     }
 
-    function renderTextTicker() {
-      const tickerText = document.getElementById("userAnnouncementTickerText");
-      const tickerCard = document.getElementById("userAnnouncementTickerCard");
-      const counterBadge = document.getElementById("tickerCounterBadge");
-      if (!tickerText || !tickerCard) return;
-
-      const list = appState.textAnnouncements || [];
-      if (list.length === 0) {
-        tickerCard.classList.add("hidden");
-        return;
-      }
-      tickerCard.classList.remove("hidden");
-      if (currentTickerIndex >= list.length) currentTickerIndex = 0;
-      tickerText.textContent = list[currentTickerIndex].message;
-      if (counterBadge) {
-        counterBadge.textContent = list.length > 1 ? `ประกาศ ${currentTickerIndex + 1}/${list.length}` : "";
-      }
-    }
-
-    function handleSlideshowHover(h) { isSlideshowHovered = h; }
     function changeSlide(delta) {
       const total = appState.announcements.length;
       if (total === 0) return;
       currentSlideIndex = (currentSlideIndex + delta + total) % total;
       renderSlideshow();
     }
-    function goToSlide(idx) { currentSlideIndex = idx; renderSlideshow(); }
+
+    function goToSlide(idx) {
+      currentSlideIndex = idx;
+      renderSlideshow();
+    }
 
     function renderSlideshow() {
       const emptyEl = document.getElementById("slideEmptyState");
@@ -1878,7 +1756,7 @@ function doPost(e) {
       if (list.length === 0) {
         emptyEl.classList.remove("hidden");
         imgEl.classList.add("hidden");
-        if (capEl) capEl.classList.add("hidden");
+        capEl.classList.add("hidden");
         prevBtn.classList.add("hidden");
         nextBtn.classList.add("hidden");
         dotsEl.classList.add("hidden");
@@ -1891,20 +1769,18 @@ function doPost(e) {
       imgEl.alt = current.title || "ภาพประกาศ";
       imgEl.classList.remove("hidden");
 
-      if (capEl) {
-        if (current.title) {
-          capEl.textContent = current.title;
-          capEl.classList.remove("hidden");
-        } else {
-          capEl.classList.add("hidden");
-        }
+      if (current.title) {
+        capEl.textContent = current.title;
+        capEl.classList.remove("hidden");
+      } else {
+        capEl.classList.add("hidden");
       }
 
       if (list.length > 1) {
         prevBtn.classList.remove("hidden");
         nextBtn.classList.remove("hidden");
         dotsEl.classList.remove("hidden");
-        dotsEl.innerHTML = list.map((_, idx) => `<button type="button" class="slide-dot ${idx === currentSlideIndex ? "active" : ""}" onclick="goToSlide(${idx})" aria-label="สไลด์ ${idx+1}"></button>`).join("");
+        dotsEl.innerHTML = list.map((_, idx) => `<button type="button" class="slide-dot ${idx === currentSlideIndex ? "active" : ""}" onclick="goToSlide(${idx})"></button>`).join("");
       } else {
         prevBtn.classList.add("hidden");
         nextBtn.classList.add("hidden");
@@ -1912,7 +1788,62 @@ function doPost(e) {
       }
     }
 
-    // ==================== RECONCILIATION & PARCELS ====================
+    function runTextTickerInterval() {
+      clearInterval(tickerTimer);
+      tickerTimer = setInterval(() => {
+        const list = appState.textAnnouncements || [];
+        if (list.length > 1) {
+          currentTickerIndex = (currentTickerIndex + 1) % list.length;
+          renderTextTicker();
+        }
+      }, 5000);
+    }
+
+    function renderTextTicker() {
+      const tickerText = document.getElementById("userAnnouncementTickerText");
+      const tickerCard = document.getElementById("userAnnouncementTickerCard");
+      const badgeEl = document.getElementById("tickerCounterBadge");
+      const list = appState.textAnnouncements || [];
+      if (!tickerText || !tickerCard) return;
+
+      if (list.length > 0) {
+        if (currentTickerIndex >= list.length) currentTickerIndex = 0;
+        tickerCard.classList.remove("hidden");
+        tickerText.textContent = list[currentTickerIndex].message;
+        if (badgeEl) badgeEl.textContent = list.length > 1 ? `${currentTickerIndex + 1}/${list.length}` : "";
+      } else {
+        tickerCard.classList.add("hidden");
+      }
+    }
+
+    function compressImageToDataUrl(file, maxWidth = 1200, quality = 0.78) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = evt => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            let w = img.width;
+            let h = img.height;
+            if (w > maxWidth) {
+              h = Math.round((h * maxWidth) / w);
+              w = maxWidth;
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          };
+          img.onerror = reject;
+          img.src = evt.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // ==================== PARCELS & REQUESTS RECONCILIATION ====================
     function reconcileRequestsAndParcels() {
       const parcelHousesSet = new Set(appState.parcels.map(p => p.house));
       appState.requests.forEach(req => {
@@ -1943,16 +1874,14 @@ function doPost(e) {
       if (editId) {
         const idx = appState.parcels.findIndex(p => p.id === editId);
         if (idx !== -1) appState.parcels[idx] = { ...appState.parcels[idx], house, carrier, recipient, date };
-        showToast("แก้ไขข้อมูลพัสดุแล้ว", "✅");
       } else {
         appState.parcels.unshift({ id: "pcl-" + Date.now(), house, carrier, recipient, date });
-        showToast(`เพิ่มพัสดุบ้าน ${house} แล้ว`, "📦");
       }
       resetSingleParcelForm();
       reconcileRequestsAndParcels();
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
-      if (appState.gasUrl) pushStateToGoogleSheetsCloud(false);
+      showToast("✅ บันทึกรายการพัสดุเรียบร้อย");
     }
 
     function editSingleParcel(id) {
@@ -1985,9 +1914,9 @@ function doPost(e) {
         onConfirm: () => {
           appState.parcels = appState.parcels.filter(p => p.id !== id);
           reconcileRequestsAndParcels();
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          showToast("ลบรายการพัสดุแล้ว", "🗑️");
+          showToast("🗑️ ลบรายการพัสดุแล้ว");
         }
       });
     }
@@ -2003,16 +1932,12 @@ function doPost(e) {
           const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
           let added = 0;
           rows.forEach(r => {
-            const vals = Object.values(r);
-            const rawHouse = r["บ้านเลขที่"] || r["House"] || vals[0];
-            const rawCarrier = r["เลขอ้างอิง"] || r["Tracking"] || r["Reference"] || vals[1];
-            const rawType = r["ประเภทพัสดุ"] || r["Type"] || vals[2];
-            const house = formatHouseNumber(rawHouse);
-            const carrier = sanitizeInput(rawCarrier);
-            const recipient = sanitizeInput(rawType) || "กล่องพัสดุ";
+            const house = formatHouseNumber(r["บ้านเลขที่"] || r["House"] || Object.values(r)[0]);
+            const carrier = sanitizeInput(r["เลขอ้างอิง"] || r["Tracking"] || r["Reference"] || Object.values(r)[1]);
+            const recipient = sanitizeInput(r["ประเภทพัสดุ"] || Object.values(r)[2]) || "กล่องพัสดุ";
             if (house && carrier && !isDuplicateParcelEntry(house, carrier)) {
               appState.parcels.push({
-                id: "pcl-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+                id: "pcl-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
                 house,
                 carrier,
                 recipient,
@@ -2022,12 +1947,11 @@ function doPost(e) {
             }
           });
           reconcileRequestsAndParcels();
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          if (appState.gasUrl) pushStateToGoogleSheetsCloud(false);
-          showNoticeModal("นำเข้าพัสดุสำเร็จ ✅", `นำเข้ารายการพัสดุใหม่ทั้งหมด ${added} รายการเรียบร้อยแล้ว`);
-        } catch (e) {
-          showNoticeModal("ข้อผิดพลาด", "ไม่สามารถอ่านไฟล์ Excel/CSV ได้ กรุณาตรวจสอบรูปแบบไฟล์");
+          showNoticeModal("นำเข้าสำเร็จ", `นำเข้าพัสดุใหม่ ${added} รายการเรียบร้อยแล้ว`);
+        } catch (err) {
+          showNoticeModal("ข้อผิดพลาด", "ไม่สามารถอ่านไฟล์ Excel ได้ กรุณาตรวจสอบรูปแบบไฟล์");
         }
         event.target.value = "";
       };
@@ -2035,11 +1959,7 @@ function doPost(e) {
     }
 
     function downloadParcelTemplate() {
-      const wsData = [
-        ["บ้านเลขที่", "เลขอ้างอิง", "ประเภทพัสดุ"],
-        ["62/0001", "TH0123456789", "กล่องพัสดุ"],
-        ["62/0002", "SPX987654321", "ซองเอกสาร"]
-      ];
+      const wsData = [["บ้านเลขที่", "เลขอ้างอิง", "ประเภทพัสดุ"], ["62/0001", "6911-00012", "กล่องพัสดุ"]];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "ParcelTemplate");
@@ -2050,30 +1970,28 @@ function doPost(e) {
       reconcileRequestsAndParcels();
       const unmatchedList = appState.requests.filter(r => !r.matched);
       if (unmatchedList.length === 0) {
-        showNoticeModal("ไม่มีรายการ", "ไม่มีรายการคำขอที่ยังไม่มีพัสดุตกค้างในระบบ");
+        showNoticeModal("ไม่มีรายการ", "ไม่มีคำขอตกค้างที่ยังไม่มีพัสดุในระบบ");
         return;
       }
       showConfirmModal({
-        title: "ส่งออกรายงาน & เคลียร์คำขอที่ไม่มีพัสดุ",
-        message: `ต้องการส่งออกเป็นไฟล์ Excel และลบคำขอที่ไม่มีพัสดุจำนวน ${unmatchedList.length} รายการออกจากระบบใช่หรือไม่?`,
+        title: "ส่งออกรายงาน & เคลียร์คำขอ",
+        message: `ต้องการส่งออก Excel และเคลียร์คำขอที่ยังไม่มีพัสดุจำนวน ${unmatchedList.length} รายการใช่หรือไม่?`,
         confirmText: "ส่งออก & เคลียร์",
         onConfirm: () => {
-          const aoa = [["บ้านเลขที่", "สถานที่แจ้งรับ", "เบอร์โทร", "เวลาแจ้ง"]];
-          unmatchedList.forEach(r => aoa.push([r.house, r.locationName, r.phone, `${r.date} ${r.time}`]));
+          const aoa = [["บ้านเลขที่", "สถานที่แจ้งรับ", "เบอร์โทร", "หมายเหตุ", "เวลาแจ้ง"]];
+          unmatchedList.forEach(r => aoa.push([r.house, r.locationName, r.phone, r.note || "-", `${r.date} ${r.time}`]));
           const ws = XLSX.utils.aoa_to_sheet(aoa);
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, "Unmatched");
           XLSX.writeFile(wb, `Unmatched_Requests_${getTodayDateString()}.xlsx`);
 
           appState.requests = appState.requests.filter(r => r.matched);
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          showToast("ส่งออกและเคลียร์คำขอที่ไม่มีพัสดุแล้ว", "✅");
         }
       });
     }
 
-    // ==================== REQUESTS MANAGEMENT ====================
     function isDuplicateRequestEntry(date, house, locationName) {
       return appState.requests.some(r => r.date === date && r.house === house && r.locationName === locationName);
     }
@@ -2091,15 +2009,23 @@ function doPost(e) {
       if (editId) {
         const idx = appState.requests.findIndex(r => r.id === editId);
         if (idx !== -1) appState.requests[idx] = { ...appState.requests[idx], house, locationName, phone, date, note };
-        showToast("แก้ไขคำขอแล้ว", "✅");
       } else {
-        appState.requests.unshift({ id: "req-" + Date.now(), house, locationName, phone, note, date, time: getCurrentTimeString(), matched: false });
-        showToast("เพิ่มรายการคำขอแล้ว", "✅");
+        appState.requests.unshift({
+          id: "req-" + Date.now(),
+          house,
+          locationName,
+          phone,
+          note,
+          date,
+          time: getCurrentTimeString(),
+          matched: false
+        });
       }
       resetSingleRequestForm();
       reconcileRequestsAndParcels();
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
+      showToast("✅ บันทึกรายการคำขอเรียบร้อย");
     }
 
     function editSingleRequest(id) {
@@ -2110,7 +2036,9 @@ function doPost(e) {
       document.getElementById("admReqLocationSelect").value = req.locationName;
       document.getElementById("admReqPhoneInput").value = req.phone === "-" ? "" : req.phone;
       document.getElementById("admReqDateInput").value = req.date;
-      if (document.getElementById("admReqNoteInput")) document.getElementById("admReqNoteInput").value = (!req.note || req.note === "-") ? "" : req.note;
+      if (document.getElementById("admReqNoteInput")) {
+        document.getElementById("admReqNoteInput").value = req.note && req.note !== "-" ? req.note : "";
+      }
       document.getElementById("saveReqBtn").textContent = "💾 บันทึกการแก้ไข";
       document.getElementById("cancelEditReqBtn").classList.remove("hidden");
     }
@@ -2134,9 +2062,9 @@ function doPost(e) {
         onConfirm: () => {
           appState.requests = appState.requests.filter(r => r.id !== id);
           reconcileRequestsAndParcels();
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          showToast("ลบคำขอแล้ว", "🗑️");
+          showToast("🗑️ ลบคำขอแล้ว");
         }
       });
     }
@@ -2152,24 +2080,30 @@ function doPost(e) {
           const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
           let added = 0;
           rows.forEach(r => {
-            const vals = Object.values(r);
-            const house = formatHouseNumber(r["บ้านเลขที่"] || r["House"] || vals[0]);
-            const locationName = sanitizeInput(r["จุดรับพัสดุ"] || r["Location"] || vals[1] || "หน้าห้องนิติบุคคล / Office");
-            const phone = sanitizeInput(r["เบอร์โทร"] || r["Phone"] || vals[2] || "-");
-            const date = sanitizeInput(r["วันที่แจ้ง"] || vals[3]) || getTodayDateString();
+            const house = formatHouseNumber(r["บ้านเลขที่"] || r["House"] || Object.values(r)[0]);
+            const locationName = sanitizeInput(r["จุดรับพัสดุ"] || r["Location"] || Object.values(r)[1] || "หน้าห้องนิติบุคคล / Office");
+            const phone = sanitizeInput(r["เบอร์โทร"] || r["Phone"] || Object.values(r)[2] || "-");
+            const date = sanitizeInput(r["วันที่แจ้ง"] || Object.values(r)[3]) || getTodayDateString();
+            const note = sanitizeInput(r["หมายเหตุ"] || Object.values(r)[4] || "-");
             if (house && locationName && !isDuplicateRequestEntry(date, house, locationName)) {
               appState.requests.push({
-                id: "req-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
-                house, locationName, phone, date, time: getCurrentTimeString(), matched: false
+                id: "req-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+                house,
+                locationName,
+                phone,
+                note,
+                date,
+                time: "08:00:00",
+                matched: false
               });
               added++;
             }
           });
           reconcileRequestsAndParcels();
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          showNoticeModal("นำเข้าคำขอสำเร็จ ✅", `เพิ่มรายการคำขอใหม่ ${added} รายการ`);
-        } catch (e) {
+          showNoticeModal("นำเข้าคำขอสำเร็จ", `เพิ่มคำขอใหม่ ${added} รายการเรียบร้อยแล้ว`);
+        } catch (err) {
           showNoticeModal("ข้อผิดพลาด", "ไม่สามารถอ่านไฟล์ Excel คำขอได้");
         }
         event.target.value = "";
@@ -2178,7 +2112,7 @@ function doPost(e) {
     }
 
     function downloadRequestTemplate() {
-      const wsData = [["บ้านเลขที่", "จุดรับพัสดุ", "เบอร์โทร", "วันที่แจ้ง"], ["62/0001", "หน้าห้องนิติบุคคล / Office", "081-234-5678", getTodayDateString()]];
+      const wsData = [["บ้านเลขที่", "จุดรับพัสดุ", "เบอร์โทร", "วันที่แจ้ง", "หมายเหตุ"], ["62/0001", "หน้าห้องนิติบุคคล / Office", "081-234-5678", getTodayDateString(), "-"]];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "RequestTemplate");
@@ -2197,37 +2131,38 @@ function doPost(e) {
     function handleDeleteAllMatchedRequests() {
       const count = appState.requests.filter(r => r.matched).length;
       if (count === 0) {
-        showNoticeModal("ไม่มีรายการ", "ไม่มีคำขอที่จับคู่สำเร็จแล้วในขณะนี้");
+        showNoticeModal("ไม่มีรายการ", "ไม่มีคำขอที่จับคู่สำเร็จแล้ว");
         return;
       }
       showConfirmModal({
-        title: "ยืนยันการลบคำขอที่จับคู่แล้ว",
-        message: `ต้องการลบคำขอที่จับคู่สำเร็จแล้วจำนวน ${count} รายการใช่หรือไม่?`,
+        title: "ยืนยันการลบ",
+        message: `ต้องการลบคำขอที่จับคู่แล้วจำนวน ${count} รายการใช่หรือไม่?`,
         danger: true,
         onConfirm: () => {
           appState.requests = appState.requests.filter(r => !r.matched);
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          showToast("ลบคำขอที่จับคู่แล้วทั้งหมดเรียบร้อย", "🗑️");
         }
       });
     }
 
     function toggleSelectAllMatchedHouses(master) {
-      document.querySelectorAll(".matched-house-select-chk").forEach(chk => chk.checked = master.checked);
+      document.querySelectorAll(".matched-house-select-chk").forEach(chk => {
+        chk.checked = master.checked;
+      });
     }
 
     function handlePrintSelectedRequestsAndClear() {
       const selected = document.querySelectorAll(".matched-house-select-chk:checked");
       if (selected.length === 0) {
-        showNoticeModal("ยังไม่ได้เลือกห้องชุด", "กรุณาติ๊กเลือกบ้านเลขที่ที่ต้องการออกรายงานในตารางด้านล่าง");
+        showNoticeModal("ยังไม่ได้เลือก", "กรุณาเลือกบ้านเลขที่ที่ต้องการออกรายงาน");
         return;
       }
       const houses = Array.from(selected).map(chk => chk.getAttribute("data-house"));
       showConfirmModal({
-        title: "ออกรายงานจ่ายพัสดุและตัดรายการออกจากคิว",
-        message: `สร้างใบรายงาน A4 สำหรับ ${houses.length} ห้องชุด และย้ายรายการออกจากคิวรอจ่ายใช่หรือไม่?`,
-        confirmText: "สร้างรายงาน A4",
+        title: "ออกรายงานและเคลียร์รายการที่เลือก",
+        message: `สร้างรายงานจ่ายพัสดุสำหรับ ${houses.length} ห้อง และลบออกจากรายการรอดำเนินการใช่หรือไม่?`,
+        confirmText: "ออกรายงาน & ลบ",
         onConfirm: () => {
           const houseSet = new Set(houses);
           const frozenReqs = JSON.parse(JSON.stringify(appState.requests.filter(r => houseSet.has(r.house))));
@@ -2236,7 +2171,9 @@ function doPost(e) {
           const newReport = {
             id: "rep-" + Date.now(),
             timestamp: `${getTodayDateString()} ${getCurrentTimeString()}`,
-            houses, requests: frozenReqs, parcels: frozenPcls
+            houses,
+            requests: frozenReqs,
+            parcels: frozenPcls
           };
 
           if (!Array.isArray(appState.reportHistory)) appState.reportHistory = [];
@@ -2246,37 +2183,45 @@ function doPost(e) {
           appState.parcels = appState.parcels.filter(p => !houseSet.has(p.house));
 
           reconcileRequestsAndParcels();
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
           switchAdminTab("tabReportA4");
-          showToast("สร้างใบรายงาน A4 สำเร็จแล้ว", "🖨️");
+          showNoticeModal("สร้างรายงานสำเร็จ", "สร้างรายงานจ่ายพัสดุ A4 เรียบร้อยแล้ว");
         }
       });
     }
 
-    // ==================== A4 REPORT GENERATION & PRINT ====================
+    // ==================== A4 REPORT ====================
     function buildGroupedDispatchReportData(reportObj = null) {
       const nitiGroupKey = "หน้าห้องนิติบุคคล / Office";
       const groups = { [nitiGroupKey]: [] };
 
-      const reqs = reportObj ? (reportObj.requests || []) : getLatestRequestsOnly(appState.requests);
-      const pcls = reportObj ? (reportObj.parcels || []) : appState.parcels;
+      const reqSource = reportObj ? (reportObj.requests || []) : getLatestRequestsOnly(appState.requests);
+      const pclSource = reportObj ? (reportObj.parcels || []) : appState.parcels;
 
       const reqMap = {};
-      reqs.forEach(r => { if (!reqMap[r.house]) reqMap[r.house] = r; });
+      reqSource.forEach(r => {
+        if (!reqMap[r.house]) reqMap[r.house] = r;
+      });
 
-      pcls.forEach(p => {
+      pclSource.forEach(p => {
         const req = reqMap[p.house];
         if (!req) return;
         let g = req.locationName || nitiGroupKey;
         if (g.includes("หน้าห้องนิติ")) g = nitiGroupKey;
         if (!groups[g]) groups[g] = [];
-        groups[g].push({ house: p.house, carrier: p.carrier, recipient: p.recipient, phone: req.phone || "-" });
+        groups[g].push({
+          house: p.house,
+          carrier: p.carrier,
+          recipient: p.recipient,
+          phone: req.phone || "-",
+          note: req.note || "-"
+        });
       });
 
       if (groups[nitiGroupKey].length === 0) delete groups[nitiGroupKey];
       Object.keys(groups).forEach(k => {
-        groups[k].sort((a, b) => String(a.house).localeCompare(String(b.house), 'th', { numeric: true }));
+        groups[k].sort((a, b) => String(a.house).localeCompare(String(b.house), "th", { numeric: true }));
       });
       return { groups, nitiGroupKey };
     }
@@ -2285,72 +2230,71 @@ function doPost(e) {
       const { groups } = buildGroupedDispatchReportData(reportObj);
       const keys = Object.keys(groups);
       if (keys.length === 0) {
-        return `<div style="text-align:center; padding:40px; color:#64748b;">ยังไม่มีข้อมูลรายงานจ่ายพัสดุล่าสุด</div>`;
+        return `<div style="text-align:center; padding:40px; color:#64748b;">ยังไม่มีรายงานจ่ายพัสดุล่าสุด</div>`;
       }
 
-      const printDate = reportObj ? reportObj.timestamp : `${getTodayDateString()} ${getCurrentTimeString()}`;
-      let html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบรายงานจ่ายพัสดุ - ${appState.projectName}</title>
-      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
-      <style>
-        body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;margin:0;padding:16px;}
-        .a4-page{page-break-after:always; margin-bottom:24px;}
-        .a4-page:last-child{page-break-after:auto;}
-        .a4-table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:14.5px;}
-        .a4-table th,.a4-table td{border:1px solid #000;padding:9px 11px;vertical-align:middle;}
-        .a4-table th{background:#f1f5f9;font-weight:700;text-align:left;}
-        .a4-spacer-row td{height:14px;padding:0;background:#f8fafc;border-left:1px solid #000;border-right:1px solid #000;}
-        @media print { body{padding:0;} @page{size:A4; margin:14mm;} }
-      </style></head><body>`;
+      let html = `
+        <style>
+          body { font-family: 'Sarabun', sans-serif; color: #000000; background: #ffffff; margin: 0; padding: 16px; }
+          .a4-page { page-break-after: always; margin-bottom: 28px; }
+          .a4-page:last-child { page-break-after: auto; }
+          .a4-table { width: 100%; border-collapse: collapse; font-size: 15px; color: #000000; }
+          .a4-table th, .a4-table td { border: 1px solid #000000; padding: 10px 12px; vertical-align: middle; color: #000000 !important; }
+          .a4-table th { background: #f1f5f9; font-weight: 700; }
+          .room-spacer-row td { height: 14px; background: #f8fafc; border-left: 1px solid #000; border-right: 1px solid #000; padding: 0; }
+        </style>
+      `;
 
       keys.forEach((loc, idx) => {
         const items = groups[loc];
-        const locObj = appState.locations.find(l => String(l.name).trim() === String(loc).trim());
-        const showPhoneCol = isPhoneRequiredForLocation(locObj);
-        const colSpanCount = showPhoneCol ? 6 : 5;
+        const locConfig = appState.locations.find(l => String(l.name).trim() === String(loc).trim());
+        const showPhoneCol = locConfig ? isPhoneRequiredForLocation(locConfig) : false;
 
         html += `
           <div class="a4-page">
-            <div style="text-align:center; margin-bottom:14px; border-bottom:2px solid #000; padding-bottom:10px;">
-              <div style="font-size:15px; font-weight:700;">🏢 ${appState.projectName}</div>
-              <h2 style="margin:4px 0; font-size:20px;">ใบรายงานจ่ายพัสดุประจำวัน (Parcel Dispatch Sheet)</h2>
-              <div style="font-size:13px;">จุดส่งมอบ: <strong>${loc}</strong> | วันที่พิมพ์: ${printDate} | แผ่นที่ ${idx+1}/${keys.length}</div>
+            <div style="text-align:center; margin-bottom:15px; border-bottom:2px solid #000; padding-bottom:8px;">
+              <div style="font-size:15px; font-weight:700;">🏢 ${escapeHtml(appState.projectName)}</div>
+              <h2 style="margin:4px 0; font-size:19px;">ใบรายงานจ่ายพัสดุประจำวัน (Parcel Dispatch Sheet)</h2>
+              <div style="font-size:13px;">จุดส่งมอบ: <strong>${escapeHtml(loc)}</strong> | วันที่พิมพ์: ${reportObj ? reportObj.timestamp : `${getTodayDateString()} ${getCurrentTimeString()}`} | แผ่นที่ ${idx + 1}/${keys.length}</div>
             </div>
             <table class="a4-table">
               <thead>
                 <tr>
                   <th style="width:8%; text-align:center;">ลำดับ</th>
-                  <th style="width:${showPhoneCol ? '18%' : '22%'};">บ้านเลขที่</th>
-                  <th style="width:${showPhoneCol ? '26%' : '30%'};">เลขอ้างอิง (5 ตัวท้าย)</th>
-                  <th style="width:${showPhoneCol ? '20%' : '24%'};">ประเภทพัสดุ</th>
-                  ${showPhoneCol ? '<th style="width:14%;">เบอร์โทร</th>' : ''}
-                  <th style="width:${showPhoneCol ? '14%' : '16%'}; text-align:center;">ลายเซ็นผู้รับ</th>
+                  <th style="width:18%;">บ้านเลขที่</th>
+                  <th style="width:${showPhoneCol ? "24%" : "32%"};">เลขอ้างอิง (5 ตัวท้าย)</th>
+                  <th style="width:${showPhoneCol ? "20%" : "24%"};">ประเภทพัสดุ</th>
+                  ${showPhoneCol ? `<th style="width:14%;">เบอร์โทร</th>` : ""}
+                  <th style="width:${showPhoneCol ? "16%" : "18%"}; text-align:center;">ลายเซ็นผู้รับ</th>
                 </tr>
               </thead>
               <tbody>
         `;
+
+        let prevHouse = null;
         items.forEach((it, i) => {
-          if (i > 0 && items[i - 1].house !== it.house) {
-            html += `<tr class="a4-spacer-row"><td colspan="${colSpanCount}"></td></tr>`;
+          if (prevHouse !== null && prevHouse !== it.house) {
+            const colSpan = showPhoneCol ? 6 : 5;
+            html += `<tr class="room-spacer-row"><td colspan="${colSpan}"></td></tr>`;
           }
-          const shortRef = it.carrier.length > 5 ? it.carrier.slice(-5) : it.carrier;
+          prevHouse = it.house;
+
+          const cleanRef = String(it.carrier || "").trim();
+          const shortRef = cleanRef.length > 5 ? cleanRef.slice(-5) : cleanRef;
+
           html += `
             <tr>
-              <td style="text-align:center;font-weight:700;">${i+1}</td>
-              <td><strong>${it.house}</strong></td>
-              <td><code style="font-weight:700; font-size:15px;">${shortRef}</code></td>
-              <td>${it.recipient}</td>
-              ${showPhoneCol ? `<td>${it.phone}</td>` : ''}
-              <td style="height:36px;"></td>
-            </tr>`;
+              <td style="text-align:center; font-weight:700;">${i + 1}</td>
+              <td><strong>${escapeHtml(it.house)}</strong></td>
+              <td><strong style="font-family:monospace; font-size:16px;">${escapeHtml(shortRef)}</strong></td>
+              <td>${escapeHtml(it.recipient)}</td>
+              ${showPhoneCol ? `<td>${escapeHtml(it.phone)}</td>` : ""}
+              <td style="height:40px;"></td>
+            </tr>
+          `;
         });
-        html += `</tbody></table>
-            <div style="display:flex; justify-content:space-between; font-size:13px; margin-top:20px;">
-              <div>รวมพัสดุจุดนี้ทั้งหมด: <strong>${items.length} ชิ้น</strong></div>
-              <div>ลงชื่อเจ้าหน้าที่ผู้จ่ายพัสดุ: ....................................................</div>
-            </div>
-          </div>`;
+        html += `</tbody></table></div>`;
       });
-      html += `</body></html>`;
       return html;
     }
 
@@ -2358,7 +2302,7 @@ function doPost(e) {
       const container = document.getElementById("a4ReportContainer");
       if (!container) return;
       if (!Array.isArray(appState.reportHistory) || appState.reportHistory.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:48px; color:#64748b;">ยังไม่มีข้อมูลไฟล์รายงาน (กรุณาเลือกห้องชุดที่จับคู่แล้วในแท็บที่ 2 เพื่อสร้างรายงาน)</div>`;
+        container.innerHTML = `<div style="text-align:center; padding:48px; color:#64748b;">ยังไม่มีข้อมูลไฟล์รายงาน (เลือกห้องชุดที่จับคู่แล้วในแท็บที่ 2 เพื่อสร้างรายงาน)</div>`;
         return;
       }
       container.innerHTML = buildA4ReportHTMLForHouses(appState.reportHistory[0]);
@@ -2368,14 +2312,14 @@ function doPost(e) {
       const tbody = document.getElementById("reportHistoryTbody");
       if (!tbody) return;
       if (!Array.isArray(appState.reportHistory) || appState.reportHistory.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีประวัติการพิมพ์รายงาน</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีประวัติการออกรายงาน</td></tr>`;
         return;
       }
       tbody.innerHTML = appState.reportHistory.map(r => `
         <tr>
           <td><strong>${r.timestamp}</strong></td>
-          <td style="text-align:center;font-weight:700;color:var(--brand);">${r.houses.length} ห้อง</td>
-          <td>${r.houses.join(", ")}</td>
+          <td style="text-align:center; font-weight:700; color:var(--brand);">${r.houses.length} ห้อง</td>
+          <td>${escapeHtml(r.houses.join(", "))}</td>
           <td style="text-align:right; white-space:nowrap;">
             <button type="button" class="btn btn-primary btn-sm" onclick="printReportFromHistory('${r.id}')">📄 พิมพ์ PDF</button>
             <button type="button" class="btn btn-danger btn-sm" onclick="deleteReportFromHistory('${r.id}')">ลบ</button>
@@ -2391,27 +2335,19 @@ function doPost(e) {
     }
 
     function deleteReportFromHistory(id) {
-      showConfirmModal({
-        title: "ลบประวัติรายงาน",
-        message: "ต้องการลบประวัติการออกรายงานชุดนี้ใช่หรือไม่?",
-        danger: true,
-        onConfirm: () => {
-          appState.reportHistory = appState.reportHistory.filter(i => i.id !== id);
-          saveStateToStorage();
-          renderAll();
-        }
-      });
+      appState.reportHistory = appState.reportHistory.filter(i => i.id !== id);
+      saveStateToStorage(true);
+      renderAll();
     }
 
     function handleClearAllReportHistory() {
-      if (appState.reportHistory.length === 0) return;
       showConfirmModal({
-        title: "ล้างประวัติรายงานทั้งหมด",
-        message: "ต้องการล้างประวัติรายงานทั้งหมดใช่หรือไม่?",
+        title: "ยืนยันการล้างประวัติ",
+        message: "ต้องการล้างประวัติการออกรายงานทั้งหมดใช่หรือไม่?",
         danger: true,
         onConfirm: () => {
           appState.reportHistory = [];
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
         }
       });
@@ -2422,63 +2358,57 @@ function doPost(e) {
       if (iframe) {
         const doc = iframe.contentDocument || iframe.contentWindow.document;
         doc.open();
-        doc.write(html);
+        doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>รายงานจ่ายพัสดุ A4</title></head><body>${html}</body></html>`);
         doc.close();
         setTimeout(() => {
-          try {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-          } catch (e) {
-            const win = window.open("", "_blank");
-            if (win) { win.document.write(html); win.document.close(); win.print(); }
-          }
-        }, 350);
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        }, 300);
       }
     }
 
     function handlePrintLatestReport() {
-      if (appState.reportHistory.length === 0) {
-        showNoticeModal("ไม่มีรายงาน", "ยังไม่มีรายงานล่าสุดให้พิมพ์");
+      if (!appState.reportHistory || appState.reportHistory.length === 0) {
+        showNoticeModal("ไม่มีรายงาน", "ยังไม่มีรายงานล่าสุดสำหรับสั่งพิมพ์");
         return;
       }
       printReportFromHistory(appState.reportHistory[0].id);
     }
 
     function handleOpenPrintWindowLatest() {
-      if (appState.reportHistory.length === 0) {
-        showNoticeModal("ไม่มีรายงาน", "ยังไม่มีรายงานล่าสุดให้เปิด");
+      if (!appState.reportHistory || appState.reportHistory.length === 0) {
+        showNoticeModal("ไม่มีรายงาน", "ยังไม่มีรายงานล่าสุด");
         return;
       }
       const html = buildA4ReportHTMLForHouses(appState.reportHistory[0]);
       const win = window.open("", "_blank");
       if (win) {
-        win.document.write(html);
+        win.document.open();
+        win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>รายงานจ่ายพัสดุ A4</title></head><body>${html}<script>window.onload=function(){window.print();};<\/script></body></html>`);
         win.document.close();
-        setTimeout(() => win.print(), 400);
       } else {
-        showNoticeModal("ป๊อปอัปถูกบล็อก", "กรุณาอนุญาต Pop-up หรือกดปุ่ม สั่งพิมพ์ / บันทึก A4 PDF");
+        executeIsolatedPrint(html);
       }
     }
 
     function handleExportExcelLatestReport() {
-      if (appState.reportHistory.length === 0) {
-        showNoticeModal("ไม่มีรายงาน", "ยังไม่มีรายงานล่าสุดให้ส่งออก");
+      if (!appState.reportHistory || appState.reportHistory.length === 0) {
+        showNoticeModal("ไม่มีรายงาน", "ยังไม่มีรายงานล่าสุดสำหรับส่งออก Excel");
         return;
       }
       const r = appState.reportHistory[0];
       const { groups } = buildGroupedDispatchReportData(r);
       const wb = XLSX.utils.book_new();
       Object.keys(groups).forEach(loc => {
-        const aoa = [["ลำดับ", "บ้านเลขที่", "เลขอ้างอิง", "ประเภทพัสดุ", "เบอร์โทร"]];
-        groups[loc].forEach((it, i) => aoa.push([i+1, it.house, it.carrier, it.recipient, it.phone]));
+        const aoa = [["ลำดับ", "บ้านเลขที่", "เลขอ้างอิง", "ประเภทพัสดุ", "เบอร์โทร", "หมายเหตุ"]];
+        groups[loc].forEach((it, i) => aoa.push([i + 1, it.house, it.carrier, it.recipient, it.phone, it.note || "-"]));
         const ws = XLSX.utils.aoa_to_sheet(aoa);
-        const safeSheetName = loc.replace(/[\\/?*[\]:]/g, "").substring(0, 28) || "Report";
-        XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+        XLSX.utils.book_append_sheet(wb, ws, loc.replace(/[\\/?*[\]]/g, "_").substring(0, 28));
       });
       XLSX.writeFile(wb, `Dispatch_Report_${getTodayDateString()}.xlsx`);
     }
 
-    // ==================== LOCATIONS & HOUSES ====================
+    // ==================== LOCATIONS, HOUSES, ANNOUNCEMENTS, ADMINS ====================
     function handleSaveLocation(e) {
       e.preventDefault();
       const editId = document.getElementById("editLocationId").value;
@@ -2488,15 +2418,17 @@ function doPost(e) {
 
       if (editId) {
         const loc = appState.locations.find(l => l.id === editId);
-        if (loc) { loc.name = name; loc.requirePhone = requirePhone; }
-        showToast("แก้ไขจุดรับพัสดุแล้ว", "✅");
+        if (loc) {
+          loc.name = name;
+          loc.requirePhone = requirePhone;
+        }
       } else {
         appState.locations.push({ id: "loc-" + Date.now(), name, requirePhone });
-        showToast("เพิ่มจุดรับพัสดุใหม่แล้ว", "✅");
       }
       resetLocationForm();
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
+      showToast("✅ บันทึกจุดรับพัสดุแล้ว");
     }
 
     function editLocation(id) {
@@ -2504,7 +2436,7 @@ function doPost(e) {
       if (!loc) return;
       document.getElementById("editLocationId").value = loc.id;
       document.getElementById("locNameInput").value = loc.name;
-      document.getElementById("locReqPhoneCheck").checked = loc.requirePhone;
+      document.getElementById("locReqPhoneCheck").checked = isPhoneRequiredForLocation(loc);
       document.getElementById("saveLocBtn").textContent = "💾 บันทึกแก้ไขจุดรับ";
       document.getElementById("cancelLocEditBtn").classList.remove("hidden");
     }
@@ -2519,12 +2451,12 @@ function doPost(e) {
 
     function deleteLocation(id) {
       showConfirmModal({
-        title: "ลบจุดรับพัสดุ",
+        title: "ยืนยันการลบจุดรับ",
         message: "ต้องการลบสถานที่รับพัสดุนี้ใช่หรือไม่?",
         danger: true,
         onConfirm: () => {
           appState.locations = appState.locations.filter(l => l.id !== id);
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
         }
       });
@@ -2536,14 +2468,10 @@ function doPost(e) {
       const start = parseInt(document.getElementById("genStart").value, 10);
       const end = parseInt(document.getElementById("genEnd").value, 10);
       const pad = parseInt(document.getElementById("genPad").value, 10);
-      const exclude = new Set(sanitizeInput(document.getElementById("genExclude").value).split(",").map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n)));
+      const exclude = new Set(sanitizeInput(document.getElementById("genExclude").value).split(",").map(n => parseInt(n.trim(), 10)));
 
-      if (end < start) {
-        showNoticeModal("ข้อมูลไม่ถูกต้อง", "เลขสิ้นสุดต้องมากกว่าหรือเท่ากับเลขเริ่มต้น");
-        return;
-      }
-      if (end - start > 5000) {
-        showNoticeModal("จำนวนมากเกินไป", "กรุณาสร้างครั้งละไม่เกิน 5,000 รายการ");
+      if (end < start || end - start > 5000) {
+        showNoticeModal("ช่วงตัวเลขไม่ถูกต้อง", "กรุณาระบุเลขสิ้นสุดมากกว่าเลขเริ่มต้น (ไม่เกิน 5,000 รายการต่อครั้ง)");
         return;
       }
 
@@ -2553,56 +2481,28 @@ function doPost(e) {
         const numStr = pad > 0 ? String(i).padStart(pad, "0") : String(i);
         gen.push(`${prefix}${numStr}`);
       }
-      appState.houses = Array.from(new Set([...appState.houses, ...gen])).sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
-      saveStateToStorage();
+      appState.houses = Array.from(new Set([...appState.houses, ...gen]));
+      saveStateToStorage(true);
       renderAll();
-      showNoticeModal("สร้างบ้านเลขที่สำเร็จ ✅", `สร้างและรวมรายการบ้านเลขที่ทั้งหมด ${appState.houses.length} หลัง`);
+      showNoticeModal("สร้างบ้านเลขที่สำเร็จ", `สร้างรายการบ้านเลขที่รวมทั้งสิ้น ${appState.houses.length} หลัง`);
     }
 
     function removeSingleHouse(h) {
       appState.houses = appState.houses.filter(i => i !== h);
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
     }
 
     function handleClearAllHouses() {
       showConfirmModal({
-        title: "ล้างรายการบ้านเลขที่ทั้งหมด",
+        title: "ยืนยันการล้างบ้านเลขที่",
         message: "ต้องการลบรายการบ้านเลขที่ทั้งหมดในระบบใช่หรือไม่?",
         danger: true,
         onConfirm: () => {
           appState.houses = [];
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
         }
-      });
-    }
-
-    // ==================== ANNOUNCEMENTS & IMAGE COMPRESSION ====================
-    function compressImageFile(file, maxWidth = 1200, quality = 0.78) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement("canvas");
-            let width = img.width;
-            let height = img.height;
-            if (width > maxWidth) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL("image/jpeg", quality));
-          };
-          img.onerror = reject;
-          img.src = evt.target.result;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
       });
     }
 
@@ -2613,33 +2513,35 @@ function doPost(e) {
       const url = sanitizeInput(document.getElementById("annUrlInput").value);
       const file = document.getElementById("annFileInput").files[0];
 
-      const save = (imgUrl) => {
-        if (!imgUrl && !editId) {
-          showNoticeModal("กรุณาระบุรูปภาพ", "กรุณาวางลิงก์รูปภาพ หรือเลือกไฟล์รูปภาพอัปโหลด");
-          return;
-        }
+      const commitSave = imgUrl => {
         if (editId) {
           const ann = appState.announcements.find(a => a.id === editId);
-          if (ann) { ann.title = title; if (imgUrl) ann.imageUrl = imgUrl; }
-          showToast("แก้ไขภาพประกาศแล้ว", "✅");
+          if (ann) {
+            ann.title = title;
+            if (imgUrl) ann.imageUrl = imgUrl;
+          }
         } else {
-          appState.announcements.push({ id: "ann-" + Date.now(), title, imageUrl: imgUrl });
-          showToast("เพิ่มภาพประกาศแล้ว", "🖼️");
+          appState.announcements.push({
+            id: "ann-" + Date.now(),
+            title,
+            imageUrl: imgUrl || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80"
+          });
         }
         resetAnnouncementForm();
-        saveStateToStorage();
+        saveStateToStorage(true);
         renderAll();
+        showToast("✅ บันทึกภาพประกาศแล้ว");
       };
 
       if (file) {
         try {
-          const compressedDataUrl = await compressImageFile(file);
-          save(compressedDataUrl);
+          const compressed = await compressImageToDataUrl(file, 1200, 0.78);
+          commitSave(compressed);
         } catch (err) {
-          showNoticeModal("ข้อผิดพลาด", "ไม่สามารถประมวลผลไฟล์รูปภาพได้");
+          showNoticeModal("ข้อผิดพลาด", "ไม่สามารถอ่านไฟล์รูปภาพได้");
         }
       } else {
-        save(url);
+        commitSave(url);
       }
     }
 
@@ -2648,7 +2550,7 @@ function doPost(e) {
       if (!ann) return;
       document.getElementById("editAnnouncementId").value = ann.id;
       document.getElementById("annTitleInput").value = ann.title;
-      document.getElementById("annUrlInput").value = ann.imageUrl.startsWith("data:") ? "" : ann.imageUrl;
+      document.getElementById("annUrlInput").value = ann.imageUrl;
       document.getElementById("saveAnnBtn").textContent = "💾 บันทึกแก้ไข";
       document.getElementById("cancelAnnEditBtn").classList.remove("hidden");
     }
@@ -2663,16 +2565,9 @@ function doPost(e) {
     }
 
     function deleteAnnouncement(id) {
-      showConfirmModal({
-        title: "ลบภาพประกาศ",
-        message: "ต้องการลบภาพประกาศนี้ใช่หรือไม่?",
-        danger: true,
-        onConfirm: () => {
-          appState.announcements = appState.announcements.filter(a => a.id !== id);
-          saveStateToStorage();
-          renderAll();
-        }
-      });
+      appState.announcements = appState.announcements.filter(a => a.id !== id);
+      saveStateToStorage(true);
+      renderAll();
     }
 
     function moveAnnouncementOrder(id, dir) {
@@ -2682,15 +2577,14 @@ function doPost(e) {
       const tmp = appState.announcements[idx];
       appState.announcements[idx] = appState.announcements[target];
       appState.announcements[target] = tmp;
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
     }
 
     function handleSlideshowSpeedChange() {
       appState.slideshowSpeedMs = parseInt(document.getElementById("slideshowSpeedSelect").value, 10);
-      saveStateToStorage();
+      saveStateToStorage(true);
       runSlideshowInterval();
-      showToast("อัปเดตความเร็วสไลด์โชว์แล้ว", "⚙️");
     }
 
     function handleSaveTextAnnouncement(e) {
@@ -2702,14 +2596,13 @@ function doPost(e) {
       if (editId) {
         const item = appState.textAnnouncements.find(t => t.id === editId);
         if (item) item.message = message;
-        showToast("แก้ไขข้อความประกาศแล้ว", "✅");
       } else {
         appState.textAnnouncements.unshift({ id: "txt-" + Date.now(), message });
-        showToast("เพิ่มข้อความประกาศด่วนแล้ว", "📢");
       }
       resetTextAnnForm();
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
+      showToast("✅ บันทึกข้อความประกาศแล้ว");
     }
 
     function editTextAnn(id) {
@@ -2730,11 +2623,10 @@ function doPost(e) {
 
     function deleteTextAnn(id) {
       appState.textAnnouncements = appState.textAnnouncements.filter(t => t.id !== id);
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
     }
 
-    // ==================== ADMIN & ROLE MANAGEMENT ====================
     function handleSaveRoleAdmin(e) {
       if (e) e.preventDefault();
       const editId = document.getElementById("editRoleAdminId").value;
@@ -2763,13 +2655,17 @@ function doPost(e) {
         }
         appState.admins.push({
           id: "adm-" + Date.now(),
-          username, password, displayName, role, active: true
+          username,
+          password,
+          displayName,
+          role,
+          active: true
         });
       }
       resetRoleAdminForm();
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
-      showNoticeModal("สำเร็จ ✅", "บันทึกข้อมูลบัญชีแอดมินเรียบร้อยแล้ว");
+      showNoticeModal("บันทึกสำเร็จ", "บันทึกบัญชีแอดมินเรียบร้อยแล้ว");
     }
 
     function editRoleAdmin(id) {
@@ -2803,7 +2699,7 @@ function doPost(e) {
         return;
       }
       adm.active = adm.active === false ? true : false;
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
     }
 
@@ -2818,135 +2714,92 @@ function doPost(e) {
         danger: true,
         onConfirm: () => {
           appState.admins = appState.admins.filter(a => a.id !== id);
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
         }
       });
     }
 
-    // ==================== CLOUD SYNC (GOOGLE SHEETS & DRIVE) ====================
+    function handleSaveProjectName(e) {
+      e.preventDefault();
+      const name = sanitizeInput(document.getElementById("projectNameInput").value);
+      if (!name) return;
+      appState.projectName = name;
+      saveStateToStorage(true);
+      renderAll();
+      showNoticeModal("บันทึกสำเร็จ", `อัปเดตชื่อโครงการเป็น "${name}" เรียบร้อยแล้ว`);
+    }
+
+    function handleToggleAutomationSettings() {
+      appState.autoClear1900 = document.getElementById("autoClear1900Check").checked;
+      appState.autoCutoff2100 = document.getElementById("autoCutoff2100Check").checked;
+      saveStateToStorage(true);
+      showToast("✅ บันทึกการตั้งค่าตัดรอบอัตโนมัติแล้ว");
+    }
+
+    function runAutoClearParcels1900(manual = false) {
+      if (appState.parcels.length === 0) {
+        if (manual) showNoticeModal("ไม่มีรายการ", "ไม่มีรายการพัสดุประจำวันค้างอยู่ในระบบ");
+        return;
+      }
+      const count = appState.parcels.length;
+      appState.parcels = [];
+      reconcileRequestsAndParcels();
+      saveStateToStorage(true);
+      renderAll();
+      addConnectionLog("Automation 19:00", `เคลียร์พัสดุประจำวันอัตโนมัติจำนวน ${count} รายการ`, true);
+      if (manual) showNoticeModal("ทดสอบสำเร็จ", `เคลียร์รายการพัสดุประจำวันจำนวน ${count} รายการเรียบร้อยแล้ว`);
+    }
+
+    function runAutoCutoff2100(manual = false) {
+      const matchedCount = appState.requests.filter(r => r.matched).length;
+      if (matchedCount === 0) {
+        if (manual) showNoticeModal("ไม่มีรายการ", "ไม่มีรายการคำขอที่จับคู่แล้วสำหรับตัดรอบ");
+        return;
+      }
+      appState.requests = appState.requests.filter(r => !r.matched);
+      saveStateToStorage(true);
+      renderAll();
+      addConnectionLog("Automation 21:00", `ตัดรอบคำขอที่จับคู่แล้วจำนวน ${matchedCount} รายการ`, true);
+      if (manual) showNoticeModal("ทดสอบสำเร็จ", `ตัดรอบคำขอที่จับคู่แล้วจำนวน ${matchedCount} รายการเรียบร้อยแล้ว`);
+    }
+
+    // ==================== CLOUD SYNC & BACKUP ====================
     function handleDraftGasUrlInput(val) {
-      const cleanVal = sanitizeInput(val);
-      const inp1 = document.getElementById("gasUrlInput");
-      const inp2 = document.getElementById("cloneGasUrlInput");
-      if (inp1 && inp1.value !== cleanVal) inp1.value = cleanVal;
-      if (inp2 && inp2.value !== cleanVal) inp2.value = cleanVal;
+      const clean = sanitizeInput(val);
+      const g1 = document.getElementById("gasUrlInput");
+      const g2 = document.getElementById("cloneGasUrlInput");
+      if (g1 && document.activeElement !== g1) g1.value = clean;
+      if (g2 && document.activeElement !== g2) g2.value = clean;
+    }
+
+    function handleSaveGasUrl(pullAfter = false) {
+      appState.gasUrl = sanitizeInput(document.getElementById("gasUrlInput").value);
+      saveStateToStorage(false);
+      updateSyncStatusUI();
+      if (pullAfter) {
+        fetchFromGoogleSheetsCloud(true);
+      }
     }
 
     function copyGasScriptCode() {
-      const codeEl = document.getElementById("gasScriptSourceCode");
-      if (!codeEl) return;
-      const tempArea = document.createElement("textarea");
-      tempArea.value = codeEl.textContent;
-      document.body.appendChild(tempArea);
-      tempArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(tempArea);
-      showToast("คัดลอกโค้ด Google Apps Script แล้ว", "📋");
-    }
-
-    async function handleSaveGasUrl(showModal = false) {
-      const url = sanitizeInput(document.getElementById("gasUrlInput").value);
-      appState.gasUrl = url;
-      saveStateToStorage();
-      updateCloudSyncBadges();
-      startAutoCloudSyncTimer();
-      if (url) {
-        await fetchFromGoogleSheetsCloud(showModal);
-      } else if (showModal) {
-        showNoticeModal("บันทึกแล้ว", "ล้างค่า Web App URL เรียบร้อย (สลับเป็นโหมดออฟไลน์)");
+      const code = document.getElementById("gasScriptSourceCode").textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(() => showToast("📋 คัดลอกโค้ด Apps Script ลงคลิปบอร์ดแล้ว"));
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast("📋 คัดลอกโค้ด Apps Script ลงคลิปบอร์ดแล้ว");
       }
     }
 
     async function pushStateToGoogleSheetsCloud(manual = false) {
       if (!appState.gasUrl) {
-        if (manual) showNoticeModal("ยังไม่ได้ตั้งค่า URL", "กรุณาวางลิงก์ Google Apps Script Web App URL ก่อน");
-        return false;
-      }
-      try {
-        const lightweightState = JSON.parse(JSON.stringify(appState));
-        delete lightweightState.connectionLogs;
-
-        await fetch(appState.gasUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "sync_state", state: lightweightState })
-        });
-        addConnectionLog("Google Sheets", "ส่งข้อมูลซิงค์ขึ้น Cloud เรียบร้อย", true);
-        if (manual) showNoticeModal("ส่งข้อมูลสำเร็จ ✅", "ส่งข้อมูลขึ้น Google Sheets เรียบร้อยแล้ว");
-        return true;
-      } catch (err) {
-        addConnectionLog("Google Sheets", `ส่งข้อมูลล้มเหลว: ${err.message}`, false);
-        if (manual) showNoticeModal("ซิงค์ล้มเหลว ❌", `ไม่สามารถเชื่อมต่อ URL ได้: ${err.message}`);
-        return false;
-      }
-    }
-
-    async function fetchFromGoogleSheetsCloud(manual = false) {
-      if (!appState.gasUrl) {
-        if (manual) showNoticeModal("ยังไม่ได้ตั้งค่า URL", "กรุณาระบุ Google Apps Script Web App URL ในแท็บ สำรองไฟล์ ก่อนดึงข้อมูล");
-        return false;
-      }
-      try {
-        const res = await fetch(`${appState.gasUrl}?action=get_state&t=${Date.now()}`);
-        const json = await res.json();
-        if (json && json.status === "success" && json.data && !json.data.empty) {
-          const remote = json.data;
-          if (Array.isArray(remote.requests)) appState.requests = remote.requests;
-          if (Array.isArray(remote.parcels)) appState.parcels = remote.parcels;
-          if (Array.isArray(remote.houses) && remote.houses.length > 0) appState.houses = remote.houses;
-          if (Array.isArray(remote.locations) && remote.locations.length > 0) appState.locations = remote.locations;
-          if (Array.isArray(remote.textAnnouncements)) appState.textAnnouncements = remote.textAnnouncements;
-          if (remote.projectName) appState.projectName = remote.projectName;
-
-          reconcileRequestsAndParcels();
-          saveStateToStorage();
-          renderAll();
-          addConnectionLog("Google Sheets", "ดึงข้อมูลล่าสุดจาก Cloud สำเร็จ", true);
-          if (manual) showNoticeModal("ซิงค์สำเร็จ ✅", "ดึงข้อมูลล่าสุดจาก Google Sheets เรียบร้อยแล้ว");
-          return true;
-        } else {
-          await pushStateToGoogleSheetsCloud(false);
-          if (manual) showNoticeModal("เชื่อมต่อสำเร็จ ✅", "เชื่อมต่อกับ Google Sheets และส่งข้อมูลเริ่มต้นขึ้นชีตแล้ว");
-          return true;
-        }
-      } catch (err) {
-        addConnectionLog("Google Sheets", `ดึงข้อมูลล้มเหลว: ${err.message}`, false);
-        if (manual) showNoticeModal("เชื่อมต่อไม่สำเร็จ ❌", `ไม่สามารถดึงข้อมูลจาก Web App URL ได้:\n${err.message}\n\nกรุณาตรวจสอบว่า Deploy Web App ตั้งสิทธิ์เป็น "ทุกคน (Anyone)"`);
-        return false;
-      }
-    }
-
-    function startAutoCloudSyncTimer() {
-      clearInterval(cloudSyncTimer);
-      if (!appState.gasUrl) return;
-      cloudSyncTimer = setInterval(() => {
-        fetchFromGoogleSheetsCloud(false);
-      }, 20000);
-    }
-
-    function updateCloudSyncBadges() {
-      const hasUrl = Boolean(appState.gasUrl && appState.gasUrl.trim());
-      const badge = document.getElementById("realSyncBadge");
-      const text = document.getElementById("realSyncText");
-      const cardBadge = document.getElementById("connCardCloudBadge");
-      const cardDetail = document.getElementById("connCardCloudDetail");
-
-      if (badge && text) {
-        badge.classList.toggle("offline", !hasUrl);
-        text.textContent = hasUrl ? "Real-Sync ออนไลน์ (20s)" : "โหมดออฟไลน์ (Local)";
-      }
-      if (cardBadge && cardDetail) {
-        cardBadge.className = hasUrl ? "badge badge-matched" : "badge badge-opt";
-        cardBadge.textContent = hasUrl ? "เชื่อมต่อออนไลน์" : "โหมดออฟไลน์";
-        cardDetail.textContent = hasUrl ? `เชื่อมต่อกับ: ${appState.gasUrl.slice(0, 45)}...` : "ยังไม่ได้ตั้งค่า Google Apps Script Web App URL";
-      }
-    }
-
-    async function handleBackupToGoogleDrive() {
-      if (!appState.gasUrl) {
-        showNoticeModal("กรุณาระบุ URL", "กรุณากรอกและบันทึก Google Apps Script Web App URL ก่อนสำรองลง Google Drive");
+        if (manual) showNoticeModal("ยังไม่ได้ตั้งค่า URL", "กรุณาระบุ Google Apps Script Web App URL ก่อนส่งข้อมูล");
         return;
       }
       try {
@@ -2954,24 +2807,44 @@ function doPost(e) {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "backup_drive", state: appState })
+          body: JSON.stringify({ action: "sync_state", state: appState })
         });
-        addConnectionLog("Google Drive", "ส่งคำขอสำรองไฟล์ JSON ลง Google Drive แล้ว", true);
-        showNoticeModal("ส่งคำขอสำรองสำเร็จ ✅", "ระบบได้ส่งไฟล์สำรองข้อมูล (.json) ไปบันทึกใน Google Drive ของเจ้าของสคริปต์เรียบร้อยแล้ว");
+        addConnectionLog("Google Sheets Cloud", "ส่งข้อมูลขึ้น Google Sheets สำเร็จ", true);
+        if (manual) showNoticeModal("ส่งข้อมูลสำเร็จ", "ส่งข้อมูลปัจจุบันขึ้น Google Sheets เรียบร้อยแล้ว");
       } catch (err) {
-        showNoticeModal("ข้อผิดพลาด", `ไม่สามารถสำรองลง Google Drive ได้: ${err.message}`);
+        addConnectionLog("Google Sheets Cloud", `ส่งข้อมูลล้มเหลว: ${err.message}`, false);
+        if (manual) showNoticeModal("ส่งข้อมูลล้มเหลว", err.message);
       }
     }
 
-    // ==================== BACKUP, RESTORE & DELETION TOOLS ====================
-    function handleSaveProjectName(e) {
-      e.preventDefault();
-      const name = sanitizeInput(document.getElementById("projectNameInput").value);
-      if (!name) return;
-      appState.projectName = name;
-      saveStateToStorage();
-      renderAll();
-      showNoticeModal("บันทึกสำเร็จ ✅", `เปลี่ยนชื่อโครงการเป็น "${name}" เรียบร้อยแล้ว`);
+    async function fetchFromGoogleSheetsCloud(manual = false) {
+      if (!appState.gasUrl) {
+        if (manual) showNoticeModal("โหมดออฟไลน์", "ยังไม่ได้ตั้งค่า Google Apps Script Web App URL ระบบกำลังบันทึกข้อมูลในเครื่อง");
+        return;
+      }
+      try {
+        const sep = appState.gasUrl.includes("?") ? "&" : "?";
+        const res = await fetch(`${appState.gasUrl}${sep}action=get_state&t=${Date.now()}`);
+        const json = await res.json();
+        const cloudData = json.data || json;
+        if (cloudData && !cloudData.empty && typeof cloudData === "object") {
+          const cloudTs = Number(cloudData.lastUpdated || 0);
+          const localTs = Number(appState.lastUpdated || 0);
+          if (!manual && localTs > cloudTs) {
+            return;
+          }
+          Object.assign(appState, cloudData);
+          localStorage.setItem("juristic_parcel_app_v2", JSON.stringify(appState));
+          renderAll();
+          addConnectionLog("Google Sheets Cloud", "ดึงข้อมูลล่าสุดจาก Google Sheets สำเร็จ", true);
+          if (manual) showNoticeModal("ซิงค์สำเร็จ", "ดึงข้อมูลล่าสุดจาก Google Sheets เรียบร้อยแล้ว");
+        } else if (manual) {
+          showNoticeModal("ยังไม่มีข้อมูลในชีต", "Google Sheets ยังไม่มีข้อมูลบันทึกไว้ แนะนำให้กด '⬆️ ส่งข้อมูลขึ้น Cloud' ก่อน");
+        }
+      } catch (err) {
+        addConnectionLog("Google Sheets Cloud", `ดึงข้อมูลไม่สำเร็จ: ${err.message}`, false);
+        if (manual) showNoticeModal("ดึงข้อมูลไม่สำเร็จ", `ไม่สามารถเชื่อมต่อ URL ได้: ${err.message}`);
+      }
     }
 
     function handleExportBackupJson() {
@@ -2984,7 +2857,25 @@ function doPost(e) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast("ดาวน์โหลดไฟล์สำรอง .json แล้ว", "💾");
+    }
+
+    async function handleBackupToGoogleDrive() {
+      if (!appState.gasUrl) {
+        showNoticeModal("ยังไม่ได้ระบุ URL", "กรุณาระบุ Google Apps Script Web App URL ก่อนสำรองข้อมูลลง Google Drive");
+        return;
+      }
+      try {
+        await fetch(appState.gasUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "backup_drive", state: appState })
+        });
+        addConnectionLog("Google Drive Backup", "ส่งคำขอสำรองไฟล์ .json ลง Google Drive แล้ว", true);
+        showNoticeModal("ส่งคำขอสำเร็จ", "ระบบได้ส่งไฟล์สำรอง (.json) ไปบันทึกบน Google Drive ของคุณแล้ว");
+      } catch (err) {
+        showNoticeModal("เกิดข้อผิดพลาด", err.message);
+      }
     }
 
     function handleImportBackupJson(event) {
@@ -2995,12 +2886,11 @@ function doPost(e) {
         try {
           const parsed = JSON.parse(evt.target.result);
           Object.assign(appState, parsed);
-          reconcileRequestsAndParcels();
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          showNoticeModal("กู้คืนข้อมูลสำเร็จ ✅", "นำเข้าข้อมูลจากไฟล์สำรองเรียบร้อยแล้ว");
-        } catch (e) {
-          showNoticeModal("ข้อผิดพลาด", "ไม่สามารถอ่านไฟล์ JSON ได้ กรุณาตรวจสอบความถูกต้องของไฟล์");
+          showNoticeModal("กู้คืนสำเร็จ", "กู้คืนข้อมูลจากไฟล์สำรองเรียบร้อยแล้ว");
+        } catch (err) {
+          showNoticeModal("ผิดพลาด", "ไฟล์สำรอง JSON ไม่ถูกต้อง");
         }
         event.target.value = "";
       };
@@ -3009,19 +2899,17 @@ function doPost(e) {
 
     function handleDeleteAllReset() {
       showConfirmModal({
-        title: "⚠️ ยืนยันการคืนค่าเริ่มต้น (ล้างข้อมูลเป็น 0)",
-        message: "คำขอรับพัสดุ พัสดุประจำวัน และประวัติรายงานทั้งหมดจะถูกลบออก ต้องการดำเนินการต่อใช่หรือไม่?",
+        title: "ยืนยันคืนค่าเริ่มต้น",
+        message: "ต้องการลบข้อมูลคำขอ พัสดุ และประวัติรายงานทั้งหมดกลับสู่ 0 รายการใช่หรือไม่?",
         danger: true,
-        confirmText: "ล้างข้อมูลทั้งหมด",
         onConfirm: () => {
           appState.requests = [];
           appState.parcels = [];
           appState.reportHistory = [];
           appState.latestSubmittedRequest = null;
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          if (appState.gasUrl) pushStateToGoogleSheetsCloud(false);
-          showNoticeModal("ล้างข้อมูลสำเร็จ", "ระบบกลับสู่สถานะ 0 รายการเรียบร้อยแล้ว");
+          showNoticeModal("ล้างข้อมูลสำเร็จ", "ล้างข้อมูลทั้งหมดกลับสู่ 0 รายการเรียบร้อยแล้ว");
         }
       });
     }
@@ -3029,19 +2917,19 @@ function doPost(e) {
     function handleDeleteParcelsByDate() {
       const d = document.getElementById("deleteParcelDatePicker").value;
       if (!d) {
-        showNoticeModal("กรุณาเลือกวันที่", "กรุณาเลือกวันที่ที่ต้องการลบรายการพัสดุ");
+        showNoticeModal("กรุณาเลือกวันที่", "โปรดเลือกวันที่ต้องการลบรายการพัสดุ");
         return;
       }
       showConfirmModal({
         title: "ลบพัสดุตามวันที่",
-        message: `ต้องการลบรายการพัสดุประจำวันที่ ${d} ทั้งหมดใช่หรือไม่?`,
+        message: `ต้องการลบรายการพัสดุของวันที่ ${d} ใช่หรือไม่?`,
         danger: true,
         onConfirm: () => {
           appState.parcels = appState.parcels.filter(p => p.date !== d);
           reconcileRequestsAndParcels();
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          showNoticeModal("สำเร็จ", `ลบรายการพัสดุวันที่ ${d} เรียบร้อยแล้ว`);
+          showNoticeModal("ลบสำเร็จ", `ลบรายการพัสดุวันที่ ${d} เรียบร้อยแล้ว`);
         }
       });
     }
@@ -3049,19 +2937,19 @@ function doPost(e) {
     function handleDeleteRequestsByDate() {
       const d = document.getElementById("deleteRequestDatePicker").value;
       if (!d) {
-        showNoticeModal("กรุณาเลือกวันที่", "กรุณาเลือกวันที่ที่ต้องการลบประวัติคำขอ");
+        showNoticeModal("กรุณาเลือกวันที่", "โปรดเลือกวันที่ต้องการลบรายการคำขอ");
         return;
       }
       showConfirmModal({
         title: "ลบคำขอตามวันที่",
-        message: `ต้องการลบประวัติคำขอรับพัสดุวันที่ ${d} ทั้งหมดใช่หรือไม่?`,
+        message: `ต้องการลบรายการคำขอของวันที่ ${d} ใช่หรือไม่?`,
         danger: true,
         onConfirm: () => {
           appState.requests = appState.requests.filter(r => r.date !== d);
           reconcileRequestsAndParcels();
-          saveStateToStorage();
+          saveStateToStorage(true);
           renderAll();
-          showNoticeModal("สำเร็จ", `ลบประวัติคำขอวันที่ ${d} เรียบร้อยแล้ว`);
+          showNoticeModal("ลบสำเร็จ", `ลบรายการคำขอวันที่ ${d} เรียบร้อยแล้ว`);
         }
       });
     }
@@ -3090,25 +2978,70 @@ function doPost(e) {
       appState.telegram.botToken = sanitizeInput(document.getElementById("tgBotTokenInput").value);
       appState.telegram.chatId = sanitizeInput(document.getElementById("tgChatIdInput").value);
       appState.telegram.enabled = document.getElementById("tgEnableCheck").checked;
-      saveStateToStorage();
+      saveStateToStorage(true);
       renderAll();
-      showNoticeModal("บันทึกสำเร็จ ✅", "บันทึกการตั้งค่า Telegram Bot เรียบร้อยแล้ว");
+      showNoticeModal("บันทึกสำเร็จ", "บันทึกการตั้งค่า Telegram Bot เรียบร้อยแล้ว");
+    }
+
+    function handleSaveAndVerifyCloneGasUrl() {
+      const url = sanitizeInput(document.getElementById("cloneGasUrlInput").value);
+      appState.gasUrl = url;
+      isCloneGasUrlVerified = true;
+      saveStateToStorage(false);
+      updateSyncStatusUI();
+      showNoticeModal("ยืนยันสำเร็จ", url ? "บันทึกลิงก์ Apps Script สำหรับแอพสำเนาเรียบร้อยแล้ว" : "ตั้งค่าแอพสำเนาแบบใช้งานในเครื่องเรียบร้อยแล้ว");
+    }
+
+    function handlePreviewClonedMode() {
+      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value);
+      if (title) {
+        appState.projectName = title;
+        saveStateToStorage(false);
+        renderAll();
+        showToast(`👁️ จำลองชื่อโครงการ: ${title}`);
+      }
+    }
+
+    function handleGenerateClonedAppFile() {
+      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value) || appState.projectName;
+      const mode = document.getElementById("cloneDataModeSelect").value;
+      const cloneUrl = sanitizeInput(document.getElementById("cloneGasUrlInput").value) || appState.gasUrl;
+
+      const clonedState = JSON.parse(JSON.stringify(appState));
+      clonedState.isClonedInstance = true;
+      clonedState.gasUrl = cloneUrl;
+      clonedState.projectName = title;
+      clonedState.latestSubmittedRequest = null;
+
+      if (mode === "config_only") {
+        clonedState.requests = [];
+        clonedState.parcels = [];
+        clonedState.reportHistory = [];
+      }
+
+      const injectScript = `<script>window.__CLONED_INITIAL_STATE__ = ${JSON.stringify(clonedState)};<\/script>`;
+      let htmlDoc = "<!doctype html>\n" + document.documentElement.outerHTML;
+      htmlDoc = htmlDoc.replace("</head>", `${injectScript}\n</head>`);
+
+      const blob = new Blob([htmlDoc], { type: "text/html;charset=utf-8" });
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = u;
+      a.download = `Juristic_Parcel_App_${title.replace(/[^a-zA-Z0-9ก-๙_-]/g, "_")}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(u);
     }
 
     function handleManualSyncCheck() {
-      if (appState.gasUrl) {
-        fetchFromGoogleSheetsCloud(true);
-      } else {
-        addConnectionLog("System Check", "ตรวจสอบระบบ Local Storage ทำงานปกติ (ยังไม่ได้เชื่อมต่อ Cloud)", true);
-        showNoticeModal("ตรวจสอบระบบสำเร็จ", "ระบบ Local Storage และ Telegram Bot พร้อมทำงาน (ยังไม่ได้ระบุ Google Apps Script URL)");
-      }
+      fetchFromGoogleSheetsCloud(true);
     }
 
     function handleClearConnectionLogs() {
       appState.connectionLogs = [];
-      saveStateToStorage();
+      saveStateToStorage(false);
       renderConnectionLogs();
-      showToast("ล้างประวัติการเชื่อมต่อแล้ว", "🧹");
     }
 
     function renderConnectionLogs() {
@@ -3116,15 +3049,15 @@ function doPost(e) {
       if (!tbody) return;
       const logs = appState.connectionLogs || [];
       if (logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีบันทึกประวัติการเชื่อมต่อ</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">ยังไม่มีประวัติการเชื่อมต่อ</td></tr>`;
         return;
       }
       tbody.innerHTML = logs.map(l => `
         <tr>
           <td>${l.timestamp}</td>
-          <td><strong>${l.channel}</strong></td>
-          <td>${l.detail}</td>
-          <td><span class="badge ${l.success ? 'badge-matched' : 'badge-req'}">${l.success ? 'สำเร็จ' : 'ล้มเหลว'}</span></td>
+          <td><strong>${escapeHtml(l.channel)}</strong></td>
+          <td>${escapeHtml(l.detail)}</td>
+          <td><span class="badge ${l.success ? "badge-matched" : "badge-req"}">${l.success ? "สำเร็จ" : "ผิดพลาด"}</span></td>
         </tr>
       `).join("");
     }
@@ -3134,104 +3067,17 @@ function doPost(e) {
         showNoticeModal("ไม่มีข้อมูล", "ยังไม่มีประวัติคำขอในระบบ");
         return;
       }
-      let html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานประวัติคำขอสะสม</title>
-      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
-      <style>body{font-family:'Sarabun',sans-serif;margin:0;padding:16px;color:#000;}table{width:100%;border-collapse:collapse;font-size:14px;}th,td{border:1px solid #000;padding:8px;text-align:left;}th{background:#f1f5f9;}</style></head><body>`;
-      html += `<h2 style="margin:0 0 6px 0;">🏢 ${appState.projectName}</h2><h3 style="margin:0 0 14px 0;">รายงานประวัติคำขอแจ้งรับพัสดุสะสม (ทั้งหมด ${appState.requests.length} รายการ)</h3>`;
-      html += `<table><thead><tr><th>ลำดับ</th><th>วันที่</th><th>เวลา</th><th>บ้านเลขที่</th><th>จุดรับพัสดุ</th><th>เบอร์โทร</th><th>สถานะ</th></tr></thead><tbody>`;
-      appState.requests.forEach((r, idx) => {
-        html += `<tr><td>${idx+1}</td><td>${r.date}</td><td>${r.time}</td><td><strong>${r.house}</strong></td><td>${r.locationName}</td><td>${r.phone}</td><td>${r.matched ? "พร้อมจ่าย" : "รอพัสดุ"}</td></tr>`;
+      let html = `<style>body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;margin:0;padding:16px;}table{width:100%;border-collapse:collapse;font-size:14px;}th,td{border:1px solid #000;padding:8px 10px;}th{background:#f1f5f9;}</style>`;
+      html += `<h2>รายงานประวัติคำขอแจ้งรับพัสดุสะสม - ${escapeHtml(appState.projectName)}</h2>`;
+      html += `<table><thead><tr><th>วันที่</th><th>เวลา</th><th>บ้านเลขที่</th><th>จุดรับพัสดุ</th><th>เบอร์โทร</th><th>หมายเหตุ</th><th>สถานะ</th></tr></thead><tbody>`;
+      appState.requests.forEach(r => {
+        html += `<tr><td>${r.date}</td><td>${r.time}</td><td><strong>${escapeHtml(r.house)}</strong></td><td>${escapeHtml(r.locationName)}</td><td>${escapeHtml(r.phone)}</td><td>${escapeHtml(r.note || "-")}</td><td>${r.matched ? "พร้อมจ่าย" : "รอพัสดุ"}</td></tr>`;
       });
-      html += `</tbody></table></body></html>`;
+      html += `</tbody></table>`;
       executeIsolatedPrint(html);
     }
 
-    function handleSaveAndVerifyCloneGasUrl() {
-      const url = sanitizeInput(document.getElementById("cloneGasUrlInput").value);
-      if (!url) {
-        showNoticeModal("กรุณาป้อนข้อมูล", "กรุณาวางลิงก์ Google Apps Script Web App URL ก่อนยืนยัน");
-        return;
-      }
-      appState.gasUrl = url;
-      saveStateToStorage();
-      renderAll();
-      const badge = document.getElementById("cloneGasUrlSavedBadge");
-      if (badge) {
-        badge.className = "badge badge-matched";
-        badge.textContent = "✅ บันทึกลิงก์พร้อมซิงค์ในแอพสำเนาแล้ว";
-      }
-      showNoticeModal("ยืนยันลิงก์สำเร็จ ✅", "บันทึกลิงก์ Apps Script สำหรับแอพสำเนาเรียบร้อยแล้ว");
-    }
-
-    function handlePreviewClonedMode() {
-      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value);
-      if (title) {
-        appState.projectName = title;
-        saveStateToStorage();
-        renderAll();
-        showToast(`เปลี่ยนชื่อแสดงผลเป็น "${title}" แล้ว`, "👁️");
-      }
-    }
-
-    function handleGenerateClonedAppFile() {
-      const title = sanitizeInput(document.getElementById("cloneAppTitleInput").value) || appState.projectName;
-      const mode = document.getElementById("cloneDataModeSelect").value;
-      const cloneUrl = sanitizeInput(document.getElementById("cloneGasUrlInput").value) || appState.gasUrl;
-
-      const cloned = JSON.parse(JSON.stringify(appState));
-      cloned.isClonedInstance = true;
-      cloned.gasUrl = cloneUrl;
-      cloned.projectName = title;
-
-      if (mode === "config_only") {
-        cloned.requests = [];
-        cloned.parcels = [];
-        cloned.reportHistory = [];
-        cloned.latestSubmittedRequest = null;
-      }
-
-      let source = document.documentElement.outerHTML;
-      const initInjection = `<script>window.__CLONED_INITIAL_STATE__ = ${JSON.stringify(cloned)};<\/script>`;
-      source = source.replace("</head>", `${initInjection}\n</head>`);
-
-      const b = new Blob(["<!doctype html>\n" + source], { type: "text/html;charset=utf-8" });
-      const u = URL.createObjectURL(b);
-      const a = document.createElement("a");
-      a.href = u;
-      a.download = `Juristic_Synced_App_${title.replace(/[^a-zA-Z0-9ก-๙_-]/g, "_")}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(u);
-      showNoticeModal("ดาวน์โหลดไฟล์สำเนาสำเร็จ ✅", `สร้างไฟล์ "${a.download}" พร้อมค่าตั้งค่าทั้งหมดเรียบร้อยแล้ว`);
-    }
-
-    // ==================== DASHBOARD FILTERING ====================
-    function initDashboardFilterInputs() {
-      const today = getTodayDateString();
-      const dDay = document.getElementById("dashInputDate");
-      const dMonth = document.getElementById("dashInputMonth");
-      const dYear = document.getElementById("dashInputYear");
-      const dStart = document.getElementById("dashInputStartDate");
-      const dEnd = document.getElementById("dashInputEndDate");
-
-      if (dDay && !dDay.value) dDay.value = today;
-      if (dMonth && !dMonth.value) dMonth.value = today.slice(0, 7);
-      if (dStart && !dStart.value) dStart.value = today;
-      if (dEnd && !dEnd.value) dEnd.value = today;
-
-      if (dYear && dYear.options.length === 0) {
-        const curYear = new Date().getFullYear();
-        for (let y = curYear + 1; y >= curYear - 5; y--) {
-          const opt = document.createElement("option");
-          opt.value = String(y);
-          opt.textContent = `ปี ${y + 543} (${y})`;
-          if (y === curYear) opt.selected = true;
-          dYear.appendChild(opt);
-        }
-      }
-    }
-
+    // ==================== DASHBOARD & NAVIGATION ====================
     function setDashboardFilterMode(mode) {
       dashboardFilterMode = mode;
       document.querySelectorAll(".filter-mode-btn").forEach(b => b.classList.remove("active"));
@@ -3243,20 +3089,12 @@ function doPost(e) {
       document.getElementById("dashControlYear").classList.toggle("hidden", mode !== "year");
       document.getElementById("dashControlCustom").classList.toggle("hidden", mode !== "custom");
 
-      const labelMap = {
-        day: "แสดงข้อมูล: รายวัน",
-        month: "แสดงข้อมูล: รายเดือน",
-        year: "แสดงข้อมูล: รายปี",
-        custom: "แสดงข้อมูล: ระบุช่วงวันที่",
-        all: "แสดงข้อมูล: สะสมทั้งหมด"
-      };
-      const lbl = document.getElementById("dashboardPeriodLabel");
-      if (lbl) lbl.textContent = labelMap[mode] || "";
+      const labels = { day: "รายวัน", month: "รายเดือน", year: "รายปี", custom: "ระบุช่วงวันที่", all: "ทั้งหมด" };
+      document.getElementById("dashboardPeriodLabel").textContent = `แสดงข้อมูล: ${labels[mode] || mode}`;
       renderAll();
     }
 
     function isDateInFilter(dateStr) {
-      if (!dateStr) return true;
       if (dashboardFilterMode === "all") return true;
       if (dashboardFilterMode === "day") return dateStr === (document.getElementById("dashInputDate")?.value || getTodayDateString());
       if (dashboardFilterMode === "month") return dateStr.slice(0, 7) === (document.getElementById("dashInputMonth")?.value || getTodayDateString().slice(0, 7));
@@ -3281,34 +3119,19 @@ function doPost(e) {
               locationName: r.locationName,
               phone: r.phone,
               count: pcls.length,
-              references: pcls.map(p => p.carrier).join(", ")
+              references: pcls.map(p => (p.carrier.length > 5 ? p.carrier.slice(-5) : p.carrier)).join(", ")
             };
           }
         }
       });
-      return Object.values(map).sort((a, b) => a.house.localeCompare(b.house, 'th', { numeric: true }));
+      return Object.values(map);
     }
 
-    // ==================== PORTAL NAVIGATION & AUTH ====================
     function switchPortalMode(mode) {
       document.getElementById("viewUserPortal").classList.toggle("hidden", mode !== "user");
       document.getElementById("viewAdminPortal").classList.toggle("hidden", mode !== "admin");
       document.getElementById("btnModeUser").classList.toggle("active", mode === "user");
       document.getElementById("btnModeAdmin").classList.toggle("active", mode === "admin");
-      if (mode === "admin") renderAdminAuthView();
-    }
-
-    function renderAdminAuthView() {
-      const gate = document.getElementById("adminLoginGate");
-      const workspace = document.getElementById("adminWorkspace");
-      if (!gate || !workspace) return;
-      if (isAdminAuthenticated) {
-        gate.classList.add("hidden");
-        workspace.classList.remove("hidden");
-      } else {
-        gate.classList.remove("hidden");
-        workspace.classList.add("hidden");
-      }
     }
 
     function switchAdminTab(tabId) {
@@ -3319,6 +3142,11 @@ function doPost(e) {
       if (tabId === "tabReportA4") renderA4ReportPreview();
     }
 
+    function renderAdminAuthView() {
+      document.getElementById("adminLoginGate").classList.toggle("hidden", isAdminAuthenticated);
+      document.getElementById("adminWorkspace").classList.toggle("hidden", !isAdminAuthenticated);
+    }
+
     function handleAdminLogin(e) {
       e.preventDefault();
       const u = sanitizeInput(document.getElementById("loginUsername").value);
@@ -3327,18 +3155,16 @@ function doPost(e) {
       if (matched) {
         if (matched.active === false) {
           const err = document.getElementById("loginErrorMsg");
-          err.textContent = "⚠️ บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อ Super Admin";
+          err.textContent = "บัญชีนี้ถูกระงับการใช้งาน";
           err.classList.remove("hidden");
           return;
         }
         isAdminAuthenticated = true;
-        document.getElementById("loginErrorMsg").classList.add("hidden");
         renderAdminAuthView();
         renderAll();
-        showToast(`ยินดีต้อนรับ ${matched.displayName || matched.username}`, "🛡️");
       } else {
         const err = document.getElementById("loginErrorMsg");
-        err.textContent = "❌ Username หรือ Password ไม่ถูกต้อง";
+        err.textContent = "Username หรือ Password ไม่ถูกต้อง";
         err.classList.remove("hidden");
       }
     }
@@ -3349,13 +3175,42 @@ function doPost(e) {
       document.getElementById("loginUsername").value = "";
       document.getElementById("loginPassword").value = "";
       document.getElementById("loginErrorMsg").classList.add("hidden");
-      showToast("ออกจากระบบแอดมินแล้ว", "👋");
     }
 
-    // ==================== MASTER RENDER FUNCTION ====================
+    function updateSyncStatusUI() {
+      const badge = document.getElementById("realSyncBadge");
+      const text = document.getElementById("realSyncText");
+      const cloudCardBadge = document.getElementById("connCardCloudBadge");
+      const cloudCardDetail = document.getElementById("connCardCloudDetail");
+      const cloneBadge = document.getElementById("cloneGasUrlSavedBadge");
+
+      if (appState.gasUrl) {
+        if (badge) badge.classList.remove("offline");
+        if (text) text.textContent = "Real-Sync ออนไลน์";
+        if (cloudCardBadge) {
+          cloudCardBadge.className = "badge badge-matched";
+          cloudCardBadge.textContent = "เชื่อมต่อ Cloud แล้ว";
+        }
+        if (cloudCardDetail) cloudCardDetail.textContent = "ซิงค์อัตโนมัติทุก 20 วินาทีกับ Google Sheets";
+        if (cloneBadge) {
+          cloneBadge.className = "badge badge-matched";
+          cloneBadge.textContent = "✅ บันทึกลิงก์พร้อมซิงค์แล้ว";
+        }
+      } else {
+        if (badge) badge.classList.add("offline");
+        if (text) text.textContent = "โหมดออฟไลน์ (Local)";
+        if (cloudCardBadge) {
+          cloudCardBadge.className = "badge badge-opt";
+          cloudCardBadge.textContent = "โหมดออฟไลน์";
+        }
+        if (cloudCardDetail) cloudCardDetail.textContent = "บันทึกข้อมูลลงหน่วยความจำเบราว์เซอร์";
+      }
+    }
+
+    // ==================== MAIN RENDER FUNCTION ====================
     function renderAll() {
       reconcileRequestsAndParcels();
-      updateCloudSyncBadges();
+      updateSyncStatusUI();
 
       const projName = appState.projectName || "โครงการอาคารชุดนิติบุคคล";
       document.getElementById("headerProjectNameBadge").textContent = "🏢 " + projName;
@@ -3365,58 +3220,57 @@ function doPost(e) {
       const pInp = document.getElementById("projectNameInput");
       if (pInp && document.activeElement !== pInp) pInp.value = projName;
 
-      // Sync Settings Inputs
-      const gas1 = document.getElementById("gasUrlInput");
-      const gas2 = document.getElementById("cloneGasUrlInput");
-      if (gas1 && document.activeElement !== gas1) gas1.value = appState.gasUrl || "";
-      if (gas2 && document.activeElement !== gas2) gas2.value = appState.gasUrl || "";
+      const g1 = document.getElementById("gasUrlInput");
+      if (g1 && document.activeElement !== g1) g1.value = appState.gasUrl || "";
+      const g2 = document.getElementById("cloneGasUrlInput");
+      if (g2 && document.activeElement !== g2) g2.value = appState.gasUrl || "";
 
       const tgTok = document.getElementById("tgBotTokenInput");
       const tgChat = document.getElementById("tgChatIdInput");
-      const tgEn = document.getElementById("tgEnableCheck");
+      const tgChk = document.getElementById("tgEnableCheck");
       if (tgTok && document.activeElement !== tgTok) tgTok.value = appState.telegram?.botToken || "";
       if (tgChat && document.activeElement !== tgChat) tgChat.value = appState.telegram?.chatId || "";
-      if (tgEn) tgEn.checked = appState.telegram?.enabled !== false;
+      if (tgChk) tgChk.checked = appState.telegram ? appState.telegram.enabled !== false : true;
 
       const c19 = document.getElementById("autoClear1900Check");
       const c21 = document.getElementById("autoCutoff2100Check");
-      if (c19) c19.checked = appState.automation?.autoClear1900 !== false;
-      if (c21) c21.checked = appState.automation?.autoCutoff2100 !== false;
+      if (c19) c19.checked = appState.autoClear1900 !== false;
+      if (c21) c21.checked = appState.autoCutoff2100 !== false;
 
       const speedSel = document.getElementById("slideshowSpeedSelect");
       if (speedSel) speedSel.value = String(appState.slideshowSpeedMs ?? 5000);
 
-      // Location Dropdowns
+      // Location dropdowns
       const reqSel = document.getElementById("reqLocationSelect");
       const admReqSel = document.getElementById("admReqLocationSelect");
       if (reqSel) {
         const cur = reqSel.value;
-        reqSel.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` + appState.locations.map(l => `<option value="${l.name}">${l.name}</option>`).join("");
+        reqSel.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` + appState.locations.map(l => `<option value="${escapeHtml(l.name)}">${escapeHtml(l.name)}</option>`).join("");
         reqSel.value = cur;
         handlePickupLocationChange();
       }
       if (admReqSel) {
         const cur = admReqSel.value;
-        admReqSel.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` + appState.locations.map(l => `<option value="${l.name}">${l.name}</option>`).join("");
+        admReqSel.innerHTML = `<option value="">-- เลือกจุดรับพัสดุ --</option>` + appState.locations.map(l => `<option value="${escapeHtml(l.name)}">${escapeHtml(l.name)}</option>`).join("");
         admReqSel.value = cur;
       }
 
       // House Datalist
       const dl = document.getElementById("houseDatalist");
-      if (dl) dl.innerHTML = appState.houses.map(h => `<option value="${h}"></option>`).join("");
+      if (dl) dl.innerHTML = appState.houses.map(h => `<option value="${escapeHtml(h)}"></option>`).join("");
 
-      // Ticker & Slideshow
       renderTextTicker();
       renderSlideshow();
       renderLatestSubmissionCard();
+      renderConnectionLogs();
 
       // Text Announcements Table
       const txtTbody = document.getElementById("textAnnouncementsTbody");
       if (txtTbody) {
         txtTbody.innerHTML = (appState.textAnnouncements || []).map((t, idx) => `
           <tr>
-            <td style="text-align:center;font-weight:700;">${idx+1}</td>
-            <td>📢 ${t.message}</td>
+            <td style="text-align:center; font-weight:700;">${idx + 1}</td>
+            <td>📢 ${escapeHtml(t.message)}</td>
             <td style="text-align:right; white-space:nowrap;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="editTextAnn('${t.id}')">✏️ แก้ไข</button>
               <button type="button" class="btn btn-danger btn-sm" onclick="deleteTextAnn('${t.id}')">ลบ</button>
@@ -3430,12 +3284,12 @@ function doPost(e) {
       if (annTbody) {
         annTbody.innerHTML = (appState.announcements || []).map((a, idx) => `
           <tr>
-            <td><strong>${idx+1}</strong></td>
-            <td><img src="${a.imageUrl}" alt="" style="width:100px; height:50px; object-fit:contain; background:#000; border-radius:6px;" onerror="this.src='https://placehold.co/200x100/0D3F46/C5A880?text=No+Image'"></td>
-            <td><strong>${a.title}</strong></td>
+            <td><strong>${idx + 1}</strong></td>
+            <td><img src="${escapeHtml(a.imageUrl)}" alt="" style="width:100px; height:50px; object-fit:contain; background:#000; border-radius:6px;"></td>
+            <td><strong>${escapeHtml(a.title)}</strong></td>
             <td style="white-space:nowrap;">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', -1)" ${idx===0?"disabled":""}>⬆️</button>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', 1)" ${idx===appState.announcements.length-1?"disabled":""}>⬇️</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', -1)" ${idx === 0 ? "disabled" : ""}>⬆️</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="moveAnnouncementOrder('${a.id}', 1)" ${idx === appState.announcements.length - 1 ? "disabled" : ""}>⬇️</button>
             </td>
             <td style="text-align:right; white-space:nowrap;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="editAnnouncement('${a.id}')">✏️</button>
@@ -3452,9 +3306,9 @@ function doPost(e) {
         const act = a.active !== false;
         return `
           <tr>
-            <td><strong>${a.username}</strong></td>
-            <td>${a.displayName || a.username}</td>
-            <td><span class="badge badge-opt">${a.role || "Super Admin"}</span></td>
+            <td><strong>${escapeHtml(a.username)}</strong></td>
+            <td>${escapeHtml(a.displayName || a.username)}</td>
+            <td><span class="badge badge-opt">${escapeHtml(a.role || "Super Admin")}</span></td>
             <td><span class="badge ${act ? "badge-matched" : "badge-req"}">${act ? "Active" : "Suspended"}</span></td>
             <td style="text-align:right; white-space:nowrap;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="editRoleAdmin('${a.id}')">แก้ไข</button>
@@ -3480,13 +3334,17 @@ function doPost(e) {
       const breakdown = document.getElementById("dashboardLocationBreakdownContainer");
       if (breakdown) {
         const counts = {};
-        appState.locations.forEach(l => { counts[l.name] = 0; });
+        appState.locations.forEach(l => {
+          counts[l.name] = 0;
+        });
         const nitiKey = "หน้าห้องนิติบุคคล / Office";
-        counts[nitiKey] = 0;
+        if (counts[nitiKey] === undefined) counts[nitiKey] = 0;
 
         (appState.reportHistory || []).forEach(rep => {
           const reqMap = {};
-          (rep.requests || []).forEach(r => { reqMap[r.house] = r; });
+          (rep.requests || []).forEach(r => {
+            reqMap[r.house] = r;
+          });
           (rep.parcels || []).forEach(p => {
             const req = reqMap[p.house];
             let loc = req ? req.locationName : nitiKey;
@@ -3498,66 +3356,68 @@ function doPost(e) {
 
         breakdown.innerHTML = Object.keys(counts).map(loc => `
           <div style="background:var(--surface-alt); border:1px solid var(--border); padding:12px 16px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:13.5px; font-weight:700; color:var(--ink-secondary);">${loc}</span>
+            <span style="font-size:13.5px; font-weight:700; color:var(--ink-secondary);">${escapeHtml(loc)}</span>
             <strong style="font-size:18px; color:var(--brand);">${counts[loc]} ชิ้น</strong>
           </div>
         `).join("");
       }
 
-      // Unmatched Requests
+      // Unmatched Requests Table
       const unmatchedTbody = document.getElementById("unmatchedRequestsTbody");
       if (unmatchedTbody) {
         const unmatched = latestReqs.filter(r => !r.matched);
         unmatchedTbody.innerHTML = unmatched.map(r => `
           <tr>
             <td>${r.date} ${r.time}</td>
-            <td><strong>${r.house}</strong></td>
-            <td>${r.locationName}</td>
-            <td>${r.phone}</td>
+            <td><strong>${escapeHtml(r.house)}</strong></td>
+            <td>${escapeHtml(r.locationName)}</td>
+            <td>${escapeHtml(r.phone)}</td>
             <td><span class="badge badge-unmatched">รอพัสดุรับเข้า</span></td>
           </tr>
-        `).join("") || `<tr><td colspan="5" class="empty-state">ไม่มีคำขอตกค้าง (ทุกคำขอจับคู่พัสดุแล้ว)</td></tr>`;
+        `).join("") || `<tr><td colspan="5" class="empty-state">ไม่มีรายการคำขอที่ยังไม่มีพัสดุในระบบ</td></tr>`;
       }
 
       // Daily Parcels Table
       const pclTbody = document.getElementById("dailyParcelsTbody");
       if (pclTbody) {
         const houseLocMap = {};
-        appState.requests.forEach(r => { if (!houseLocMap[r.house]) houseLocMap[r.house] = r; });
+        appState.requests.forEach(r => {
+          if (!houseLocMap[r.house]) houseLocMap[r.house] = r;
+        });
         pclTbody.innerHTML = appState.parcels.map(p => {
           const match = houseLocMap[p.house];
           return `
             <tr>
               <td>${p.date}</td>
-              <td><strong>${p.house}</strong></td>
-              <td><code>${p.carrier}</code></td>
-              <td>${p.recipient}</td>
-              <td>${match ? match.locationName : "หน้าห้องนิติบุคคล / Office"}</td>
-              <td><span class="badge ${match ? 'badge-matched' : 'badge-opt'}">${match ? 'จับคู่สำเร็จ' : 'รอคำขอจากลูกบ้าน'}</span></td>
+              <td><strong>${escapeHtml(p.house)}</strong></td>
+              <td><code>${escapeHtml(p.carrier)}</code></td>
+              <td>${escapeHtml(p.recipient)}</td>
+              <td>${match ? escapeHtml(match.locationName) : "หน้าห้องนิติบุคคล / Office"}</td>
+              <td><span class="badge ${match ? "badge-matched" : "badge-opt"}">${match ? "จับคู่สำเร็จ" : "รอคำขอ"}</span></td>
               <td style="text-align:right; white-space:nowrap;">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleParcel('${p.id}')">แก้ไข</button>
                 <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleParcel('${p.id}')">ลบ</button>
               </td>
             </tr>
           `;
-        }).join("") || `<tr><td colspan="7" class="empty-state">ยังไม่มีรายการพัสดุรับเข้าประจำวันนี้</td></tr>`;
+        }).join("") || `<tr><td colspan="7" class="empty-state">ยังไม่มีพัสดุรับเข้าประจำวันนี้</td></tr>`;
       }
 
-      // Matched Houses Summary Table (Tab 2)
+      // Matched Houses Summary Table
       const matchedTbody = document.getElementById("matchedHousesTbody");
       if (matchedTbody) {
         const matchedList = buildMatchedHousesSummary();
         matchedTbody.innerHTML = matchedList.map(item => `
           <tr>
-            <td style="text-align:center;"><input type="checkbox" class="matched-house-select-chk" data-house="${item.house}" style="transform:scale(1.3); cursor:pointer;"></td>
-            <td><strong>${item.house}</strong></td>
-            <td>${item.locationName}</td>
-            <td>${item.phone}</td>
+            <td style="text-align:center;"><input type="checkbox" class="matched-house-select-chk" data-house="${escapeHtml(item.house)}" style="transform:scale(1.3); cursor:pointer;"></td>
+            <td><strong>${escapeHtml(item.house)}</strong></td>
+            <td>${escapeHtml(item.locationName)}</td>
+            <td>${escapeHtml(item.phone)}</td>
             <td style="text-align:center; font-weight:800; color:var(--brand);">${item.count} ชิ้น</td>
-            <td><code>${item.references}</code></td>
+            <td><code>${escapeHtml(item.references)}</code></td>
             <td><span class="badge badge-matched">พร้อมพิมพ์จ่าย</span></td>
           </tr>
-        `).join("") || `<tr><td colspan="7" class="empty-state">ยังไม่มีห้องชุดที่จับคู่พัสดุสำเร็จพร้อมจ่าย</td></tr>`;
+        `).join("") || `<tr><td colspan="7" class="empty-state">ไม่มีห้องชุดที่จับคู่พัสดุพร้อมจ่าย</td></tr>`;
       }
 
       // Saved Requests Table
@@ -3565,8 +3425,13 @@ function doPost(e) {
       if (reqTbody) {
         reqTbody.innerHTML = appState.requests.map(r => `
           <tr>
-            <td>${r.date}</td><td>${r.time}</td><td><strong>${r.house}</strong></td><td>${r.locationName}</td><td>${r.phone}</td><td>${r.note || "-"}</td>
-            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พร้อมจ่าย' : 'รอพัสดุ'}</span></td>
+            <td>${r.date}</td>
+            <td>${r.time}</td>
+            <td><strong>${escapeHtml(r.house)}</strong></td>
+            <td>${escapeHtml(r.locationName)}</td>
+            <td>${escapeHtml(r.phone)}</td>
+            <td>${escapeHtml(r.note || "-")}</td>
+            <td><span class="badge ${r.matched ? "badge-matched" : "badge-unmatched"}">${r.matched ? "พร้อมจ่าย" : "รอพัสดุ"}</span></td>
             <td style="text-align:right; white-space:nowrap;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="editSingleRequest('${r.id}')">แก้ไข</button>
               <button type="button" class="btn btn-danger btn-sm" onclick="deleteSingleRequest('${r.id}')">ลบ</button>
@@ -3580,8 +3445,8 @@ function doPost(e) {
       if (locTbody) {
         locTbody.innerHTML = appState.locations.map(l => `
           <tr>
-            <td><strong>${l.name}</strong></td>
-            <td><span class="badge ${l.requirePhone ? 'badge-req' : 'badge-opt'}">${l.requirePhone ? 'บังคับกรอกเบอร์โทร' : 'ไม่ต้องกรอก'}</span></td>
+            <td><strong>${escapeHtml(l.name)}</strong></td>
+            <td><span class="badge ${isPhoneRequiredForLocation(l) ? "badge-req" : "badge-opt"}">${isPhoneRequiredForLocation(l) ? "บังคับกรอกเบอร์โทร" : "ไม่ต้องกรอก"}</span></td>
             <td style="text-align:right; white-space:nowrap;">
               <button type="button" class="btn btn-secondary btn-sm" onclick="editLocation('${l.id}')">แก้ไข</button>
               <button type="button" class="btn btn-danger btn-sm" onclick="deleteLocation('${l.id}')">ลบ</button>
@@ -3590,27 +3455,61 @@ function doPost(e) {
         `).join("");
       }
 
-      // Settings Sub-tab 5 Requests History Table
+      // Settings Requests History Table
       const histTbody = document.getElementById("settingsRequestsHistoryTbody");
       if (histTbody) {
         histTbody.innerHTML = appState.requests.map(r => `
           <tr>
-            <td>📅 ${r.date}</td><td>${r.time}</td><td><strong>${r.house}</strong></td><td>${r.locationName}</td><td>${r.phone}</td>
-            <td><span class="badge ${r.matched ? 'badge-matched' : 'badge-unmatched'}">${r.matched ? 'พัสดุพร้อมจ่าย' : 'ยังไม่มีพัสดุ'}</span></td>
+            <td>📅 ${r.date}</td>
+            <td>${r.time}</td>
+            <td><strong>${escapeHtml(r.house)}</strong></td>
+            <td>${escapeHtml(r.locationName)}</td>
+            <td>${escapeHtml(r.phone)}</td>
+            <td><span class="badge ${r.matched ? "badge-matched" : "badge-unmatched"}">${r.matched ? "พัสดุพร้อมจ่าย" : "ยังไม่มีพัสดุ"}</span></td>
           </tr>
         `).join("") || `<tr><td colspan="6" class="empty-state">ยังไม่มีประวัติคำขอ</td></tr>`;
       }
 
-      // Houses Chip Container
+      // House Chips
       document.getElementById("houseCountLabel").textContent = appState.houses.length;
       const chipsBox = document.getElementById("houseChipContainer");
       if (chipsBox) {
-        chipsBox.innerHTML = appState.houses.map(h => `<span class="house-chip">${h}<button type="button" onclick="removeSingleHouse('${h}')" title="ลบ">×</button></span>`).join("");
+        chipsBox.innerHTML = appState.houses.map(h => `<span class="house-chip">${escapeHtml(h)}<button type="button" onclick="removeSingleHouse('${escapeHtml(h)}')">×</button></span>`).join("");
       }
 
-      renderConnectionLogs();
       renderA4ReportPreview();
       renderReportHistoryTable();
+    }
+
+    // ==================== CLOCK & AUTOMATION LOOP ====================
+    function startClockAndAutomationLoop() {
+      const tick = () => {
+        const now = new Date();
+        const clockEl = document.getElementById("clockDisplay");
+        if (clockEl) clockEl.textContent = getCurrentTimeString();
+
+        const today = getTodayDateString();
+        const h = now.getHours();
+        const m = now.getMinutes();
+
+        if (appState.autoClear1900 !== false && h === 19 && m === 0 && lastAutoClear19Date !== today) {
+          lastAutoClear19Date = today;
+          runAutoClearParcels1900(false);
+        }
+        if (appState.autoCutoff2100 !== false && h === 21 && m === 0 && lastAutoCutoff21Date !== today) {
+          lastAutoCutoff21Date = today;
+          runAutoCutoff2100(false);
+        }
+      };
+      tick();
+      setInterval(tick, 1000);
+
+      clearInterval(cloudSyncTimer);
+      cloudSyncTimer = setInterval(() => {
+        if (appState.gasUrl) {
+          fetchFromGoogleSheetsCloud(false);
+        }
+      }, 20000);
     }
 
     // ==================== INITIALIZATION ====================
@@ -3618,28 +3517,30 @@ function doPost(e) {
       const hasLocal = loadStateFromStorage();
       if (!hasLocal && window.__CLONED_INITIAL_STATE__) {
         Object.assign(appState, window.__CLONED_INITIAL_STATE__);
-        saveStateToStorage();
+        saveStateToStorage(false);
       }
+      // ล้างกล่องสรุปคำขอล่าสุดที่ค้างจากเซสชันก่อนหน้าเมื่อเปิดหน้าใหม่
+      appState.latestSubmittedRequest = null;
 
       const today = getTodayDateString();
-      const pDate = document.getElementById("parcelDateInput");
-      const rDate = document.getElementById("admReqDateInput");
-      if (pDate) pDate.value = today;
-      if (rDate) rDate.value = today;
+      if (document.getElementById("dashInputDate")) document.getElementById("dashInputDate").value = today;
+      if (document.getElementById("dashInputMonth")) document.getElementById("dashInputMonth").value = today.slice(0, 7);
+      if (document.getElementById("parcelDateInput")) document.getElementById("parcelDateInput").value = today;
+      if (document.getElementById("admReqDateInput")) document.getElementById("admReqDateInput").value = today;
 
-      initDashboardFilterInputs();
+      const yearSel = document.getElementById("dashInputYear");
+      if (yearSel) {
+        const curY = new Date().getFullYear();
+        yearSel.innerHTML = [curY - 1, curY, curY + 1].map(y => `<option value="${y}" ${y === curY ? "selected" : ""}>${y + 543} (${y})</option>`).join("");
+      }
+
       isAdminAuthenticated = false;
       switchPortalMode("user");
       renderAdminAuthView();
       renderAll();
       runSlideshowInterval();
       runTextTickerInterval();
-      startRealTimeClockAndAutomation();
-      startAutoCloudSyncTimer();
-
-      if (appState.gasUrl) {
-        fetchFromGoogleSheetsCloud(false);
-      }
+      startClockAndAutomationLoop();
     });
   </script>
 </body>
